@@ -2,6 +2,8 @@
 
 A Streamlit application for analyzing resumes, cover letters, and other career documents using local AI models via Ollama.
 
+Note: I have different versions, 1,2,3,4,5, 5 should work
+
 ## Features
 
 - **Document Analysis**: Upload PDF, DOCX, or TXT files for AI-powered analysis
