@@ -70,33 +70,43 @@ def parse_conversation(text):
     lines = text.split('\n')
     current_role = None
     current_content = []
-    
+
     for line in lines:
-        if line.startswith("User: "):
+        # Check for user messages (case-insensitive)
+        if line.lower().startswith("user:"):
             # Save previous message if exists
             if current_role and current_content:
                 messages.append({"role": current_role, "content": "\n".join(current_content).strip()})
                 current_content = []
             # Start new user message
             current_role = "user"
-            current_content.append(line[6:])  # Remove "User: " prefix
-        elif line.startswith("Assistant: "):
+            # Find the position of the colon and extract content after it
+            colon_pos = line.index(':')
+            content_after_prefix = line[colon_pos + 1:].strip()
+            if content_after_prefix:
+                current_content.append(content_after_prefix)
+        # Check for assistant messages (case-insensitive)
+        elif line.lower().startswith("assistant:"):
             # Save previous message if exists
             if current_role and current_content:
                 messages.append({"role": current_role, "content": "\n".join(current_content).strip()})
                 current_content = []
             # Start new assistant message
             current_role = "assistant"
-            current_content.append(line[11:])  # Remove "Assistant: " prefix
+            # Find the position of the colon and extract content after it
+            colon_pos = line.index(':')
+            content_after_prefix = line[colon_pos + 1:].strip()
+            if content_after_prefix:
+                current_content.append(content_after_prefix)
         else:
             # Continue current message
             if current_role:
                 current_content.append(line)
-    
+
     # Add the last message
     if current_role and current_content:
         messages.append({"role": current_role, "content": "\n".join(current_content).strip()})
-    
+
     return messages
 
 # Function to load conversation from file
