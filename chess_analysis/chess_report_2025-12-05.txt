@@ -1,0 +1,91 @@
+======================================================================
+CHESS GAME ANALYSIS REPORT
+Generated: 2025-12-05 12:16:36
+======================================================================
+
+GAME PGN
+----------------------------------------------------------------------
+1. d4 1... d5 2. c4 2... dxc4 3. Nc3 3... e6 4. e4 4... Bb4 5. Bxc4 5... b6 6. Nf3 6... Bb7 7. Bd3 7... Ne7 8. e5 8... c5 9. O-O 9... cxd4 10. Nxd4 10... Qxd4 11. Bb5+ 1-0
+
+Opening: D20 Queen's Gambit Accepted
+
+SUMMARY
+----------------------------------------------------------------------
+Blunders: 5
+Mistakes: 1
+Inaccuracies: 1
+Opening deviations: 1
+
+OPENING DEVIATIONS
+----------------------------------------------------------------------
+3... e6 (book: a6 46.1%)
+  Alternatives: a6 (46.1%), Nf6 (22.3%), e5 (16.2%)
+  https://lichess.org/analysis/rnbqkbnr/ppp1pppp/8/8/2pP4/2N5/PP2PPPP/R1BQKBNR_b_KQkq_-_1_3
+
+MISTAKES & BLUNDERS
+----------------------------------------------------------------------
+BLUNDER: 5... b6
+  Eval: -0.65 → -3.77 (-3.12)
+
+BLUNDER: 6. Nf3
+  Eval: +3.77 → +1.68 (-2.09)
+
+BLUNDER: 6... Bb7
+  Eval: -1.68 → -3.82 (-2.14)
+
+BLUNDER: 7. Bd3
+  Eval: +3.82 → +1.24 (-2.58)
+
+INACCURACY: 8. e5
+  Eval: +1.15 → +0.58 (-0.57)
+
+MISTAKE: 10. Nxd4
+  Eval: +1.05 → +0.00 (-1.05)
+
+BLUNDER: 10... Qxd4
+  Eval: +0.00 → -4.37 (-4.37)
+
+======================================================================
+RECOMMENDED PUZZLES TO PRACTICE
+======================================================================
+
+Based on your game, practice these puzzle themes on Lichess:
+
+🎯 Backrankmate
+   Deliver checkmate on the back rank
+   Practice: https://lichess.org/training/backRankMate
+
+🎯 Middlegame
+   Tactical puzzles from the middlegame
+   Practice: https://lichess.org/training/middlegame
+
+🎯 Hangingpiece
+   Win material by capturing undefended pieces
+   Practice: https://lichess.org/training/hangingPiece
+
+🎯 Daily Puzzle
+   Today's puzzle (Rating: 2048, Themes: veryLong, mateIn5, middlegame)
+   Practice: https://lichess.org/training/daily
+   ⭐ Bonus: Today's featured puzzle!
+
+======================================================================
+KEY POSITIONS TO REVIEW
+======================================================================
+
+Review these critical positions:
+
+Move 5... b6
+  https://lichess.org/analysis/rnbqk1nr/ppp2ppp/4p3/8/1bBPP3/2N5/PP3PPP/R1BQK1NR_b_KQkq_-_0_5
+
+Move 6. Nf3
+  https://lichess.org/analysis/rnbqk1nr/p1p2ppp/1p2p3/8/1bBPP3/2N5/PP3PPP/R1BQK1NR_w_KQkq_-_0_6
+
+Move 6... Bb7
+  https://lichess.org/analysis/rnbqk1nr/p1p2ppp/1p2p3/8/1bBPP3/2N2N2/PP3PPP/R1BQK2R_b_KQkq_-_1_6
+
+Move 7. Bd3
+  https://lichess.org/analysis/rn1qk1nr/pbp2ppp/1p2p3/8/1bBPP3/2N2N2/PP3PPP/R1BQK2R_w_KQkq_-_2_7
+
+Move 10. Nxd4
+  https://lichess.org/analysis/rn1qk2r/pb2nppp/1p2p3/4P3/1b1p4/2NB1N2/PP3PPP/R1BQ1RK1_w_kq_-_0_10
+
