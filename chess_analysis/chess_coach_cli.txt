@@ -1,0 +1,1 @@
+the way this is ran is that you can use claude code in the chat to talk about how to move about different chess positions

@@ -1,0 +1,4 @@
+the way that is ran is
+
+you python it to then get stockfish_web_analyzer.html
+
