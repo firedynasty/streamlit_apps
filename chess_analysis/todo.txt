@@ -1,0 +1,11 @@
+  ☐ Download stockfish.js to chess_analysis directory
+  ☐ Add API key input UI for Anthropic/OpenAI (from chess_coach.py)
+  ☐ Port Socratic coaching prompts and system prompt from chess_coach.py
+  ☐ Add chat interface for discussing moves with AI coach
+  ☐ Test the integrated solution
+
+see /self-contained-html file 
+
+and then you can analyze the position and then can play this on chess.com
+
+how about then loading the analysis onto lichess.org/analysis because it's free

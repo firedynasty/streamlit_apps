@@ -1,0 +1,173 @@
+======================================================================
+CHESS GAME ANALYSIS REPORT
+Generated: 2025-12-06 09:53:36
+======================================================================
+
+GAME PGN
+----------------------------------------------------------------------
+1. e4 1... d5 2. exd5 2... Qxd5 3. Nc3 3... Qa5 4. Bc4 4... Nf6 5. a4 5... Nc6 6. Nf3 6... e5 7. d3 7... Bc5 8. O-O 8... Nd4 9. Re1 9... O-O 10. Rxe5 10... Bg4 11. Ne4 11... Nxe4 12. dxe4 12... Nxf3+ 13. gxf3 13... Bh3 14. Rd5 14... c6 15. Rd3 15... Qc7 16. Bg5 16... h6 17. Bh4 17... Kh8 18. Bg3 18... Qe7 19. Rd7 19... Qg5 20. Rxf7 20... Rxf7 21. Bxf7 21... h5 22. f4 22... Qe7 23. Bg6 23... Qe6 24. Qxh5+ 24... Kg8 25. Bf7+ 25... Qxf7 26. Qxh3 26... Rd8 27. Qf1 27... Rd2 28. Rd1 28... Rxc2 29. Rd8+ 29... Kh7 30. Qh3+ 30... Kg6 31. Qg4+ 31... Kh7 32. Qh4+ 32... Kg6 33. Rh8 33... Qd7 34. f5+ 34... Kf7 35. Qh5+ 35... Ke7 36. Bh4+ 36... Kd6 37. Qg6+ 37... Kc7 38. Rg8 38... Rc1+ 39. Kg2 39... Rc2 40. Rxg7 40... Rxb2 0-1
+
+Opening: B01 Scandinavian Defense
+
+SUMMARY
+----------------------------------------------------------------------
+Blunders: 19
+Mistakes: 6
+Inaccuracies: 8
+Opening deviations: 1
+
+OPENING DEVIATIONS
+----------------------------------------------------------------------
+1... d5 (book: c5 46.1%)
+  Alternatives: c5 (46.1%), e5 (23.4%), e6 (11.9%)
+  https://lichess.org/analysis/rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR_b_KQkq_-_0_1
+
+MISTAKES & BLUNDERS
+----------------------------------------------------------------------
+INACCURACY: 5. a4
+  Eval: +0.61 → +0.11 (-0.50)
+
+INACCURACY: 7... Bc5
+  Eval: -0.19 → -1.08 (-0.89)
+
+MISTAKE: 8... Nd4
+  Eval: -1.13 → -2.18 (-1.05)
+
+BLUNDER: 10. Rxe5
+  Eval: +1.52 → -1.25 (-2.77)
+
+BLUNDER: 10... Bg4
+  Eval: +1.25 → -2.21 (-3.46)
+
+BLUNDER: 11. Ne4
+  Eval: +2.21 → +0.13 (-2.08)
+
+BLUNDER: 12. dxe4
+  Eval: +0.21 → -3.51 (-3.72)
+
+BLUNDER: 13... Bh3
+  Eval: +3.22 → -2.32 (-5.54)
+
+BLUNDER: 14. Rd5
+  Eval: +2.32 → -0.13 (-2.45)
+
+MISTAKE: 14... c6
+  Eval: +0.13 → -1.57 (-1.70)
+
+MISTAKE: 15. Rd3
+  Eval: +1.57 → +0.34 (-1.23)
+
+INACCURACY: 15... Qc7
+  Eval: -0.34 → -0.85 (-0.51)
+
+INACCURACY: 16. Bg5
+  Eval: +0.85 → +0.09 (-0.76)
+
+INACCURACY: 17... Kh8
+  Eval: -0.53 → -1.25 (-0.72)
+
+INACCURACY: 18. Bg3
+  Eval: +1.25 → +0.61 (-0.64)
+
+BLUNDER: 19. Rd7
+  Eval: +0.66 → -4.70 (-5.36)
+
+BLUNDER: 19... Qg5
+  Eval: +4.70 → -1.63 (-6.33)
+
+BLUNDER: 20. Rxf7
+  Eval: +1.63 → -3.52 (-5.15)
+
+BLUNDER: 21... h5
+  Eval: +4.10 → -2.46 (-6.56)
+
+BLUNDER: 22... Qe7
+  Eval: -2.88 → -99.99 (-97.11)
+
+BLUNDER: 23. Bg6
+  Eval: +99.99 → +1.02 (-98.97)
+
+BLUNDER: 23... Qe6
+  Eval: -1.02 → -7.09 (-6.07)
+
+BLUNDER: 25. Bf7+
+  Eval: +7.73 → +3.31 (-4.42)
+
+INACCURACY: 26... Rd8
+  Eval: -3.19 → -4.05 (-0.86)
+
+INACCURACY: 27. Qf1
+  Eval: +4.05 → +3.44 (-0.61)
+
+BLUNDER: 29... Kh7
+  Eval: -4.17 → -99.83 (-95.66)
+
+BLUNDER: 33. Rh8
+  Eval: +99.86 → +7.73 (-92.13)
+
+BLUNDER: 33... Qd7
+  Eval: -7.73 → -99.96 (-92.23)
+
+BLUNDER: 37. Qg6+
+  Eval: +99.96 → +3.96 (-96.00)
+
+MISTAKE: 38. Rg8
+  Eval: +4.14 → +2.68 (-1.46)
+
+MISTAKE: 38... Rc1+
+  Eval: -2.68 → -3.89 (-1.21)
+
+BLUNDER: 39... Rc2
+  Eval: -3.63 → -6.92 (-3.29)
+
+MISTAKE: 40... Rxb2
+  Eval: -7.45 → -8.74 (-1.29)
+
+======================================================================
+RECOMMENDED PUZZLES TO PRACTICE
+======================================================================
+
+Based on your game, practice these puzzle themes on Lichess:
+
+🎯 Backrankmate
+   Deliver checkmate on the back rank
+   Practice: https://lichess.org/training/backRankMate
+
+🎯 Fork
+   Attack two or more pieces simultaneously
+   Practice: https://lichess.org/training/fork
+
+🎯 Middlegame
+   Tactical puzzles from the middlegame
+   Practice: https://lichess.org/training/middlegame
+
+🎯 Hangingpiece
+   Win material by capturing undefended pieces
+   Practice: https://lichess.org/training/hangingPiece
+
+🎯 Daily Puzzle
+   Today's puzzle (Rating: 1873, Themes: middlegame, crushing, short)
+   Practice: https://lichess.org/training/daily
+   ⭐ Bonus: Today's featured puzzle!
+
+======================================================================
+KEY POSITIONS TO REVIEW
+======================================================================
+
+Review these critical positions:
+
+Move 8... Nd4
+  https://lichess.org/analysis/r1b1k2r/ppp2ppp/2n2n2/q1b1p3/P1B5/2NP1N2/1PP2PPP/R1BQ1RK1_b_kq_-_2_8
+
+Move 10. Rxe5
+  https://lichess.org/analysis/r1b2rk1/ppp2ppp/5n2/q1b1p3/P1Bn4/2NP1N2/1PP2PPP/R1BQR1K1_w_-_-_5_10
+
+Move 10... Bg4
+  https://lichess.org/analysis/r1b2rk1/ppp2ppp/5n2/q1b1R3/P1Bn4/2NP1N2/1PP2PPP/R1BQ2K1_b_-_-_0_10
+
+Move 11. Ne4
+  https://lichess.org/analysis/r4rk1/ppp2ppp/5n2/q1b1R3/P1Bn2b1/2NP1N2/1PP2PPP/R1BQ2K1_w_-_-_1_11
+
+Move 12. dxe4
+  https://lichess.org/analysis/r4rk1/ppp2ppp/8/q1b1R3/P1Bnn1b1/3P1N2/1PP2PPP/R1BQ2K1_w_-_-_0_12
+

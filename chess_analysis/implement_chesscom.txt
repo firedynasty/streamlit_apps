@@ -1,0 +1,1039 @@
+================================================================================
+CHESS.COM API INTEGRATION - IMPLEMENTATION DOCUMENTATION
+================================================================================
+
+This document describes how to implement the Chess.com API to fetch the last 5
+games for a player and display them in an HTML interface served by a Python
+server (converting from Streamlit to plain HTML/JS + Python backend).
+
+================================================================================
+PART 1: CHESS.COM API OVERVIEW
+================================================================================
+
+The Chess.com API is a free, public API that does not require authentication.
+
+Base URL: https://api.chess.com/pub
+
+Key Endpoints Used:
+-------------------
+1. Get Monthly Archives:
+   GET /player/{username}/games/{YYYY}/{MM}
+
+   Returns all games played in a specific month.
+
+   Response contains:
+   - games: Array of game objects
+   - Each game has: pgn, white, black, end_time, time_class, url, etc.
+
+Important Headers:
+------------------
+Always include a User-Agent header to identify your application:
+  'User-Agent': 'Chess Coach App (Python/requests)'
+
+Rate Limiting:
+--------------
+- No official rate limit documented
+- Best practice: Add 0.5s delay between requests
+- Handle 429 (Too Many Requests) responses gracefully
+
+================================================================================
+PART 2: HTML FRONTEND IMPLEMENTATION
+================================================================================
+
+Create a self-contained HTML file with the following elements:
+
+2.1 USERNAME INPUT
+------------------
+<div class="chesscom-import">
+    <label for="chesscom-username">Chess.com Username:</label>
+    <input
+        type="text"
+        id="chesscom-username"
+        name="chesscom-username"
+        placeholder="Enter your Chess.com username"
+        aria-label="Chess.com Username"
+        autocomplete="username"
+    >
+    <button
+        type="button"
+        id="fetch-games-btn"
+        onclick="fetchChesscomGames()"
+    >
+        <span>&#x1F4E5;</span> Fetch Games
+    </button>
+</div>
+
+2.2 GAME SELECTION DROPDOWN
+---------------------------
+<div class="game-selection" id="game-selection-container" style="display: none;">
+    <label for="game-dropdown">Select a game to analyze:</label>
+    <select id="game-dropdown" onchange="loadSelectedGame()">
+        <option value="">-- Select a game --</option>
+        <!-- Games populated dynamically by JavaScript -->
+    </select>
+    <div id="game-details"></div>
+</div>
+
+2.3 CSS STYLING (matching Streamlit aesthetic)
+----------------------------------------------
+<style>
+.chesscom-import {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.chesscom-import input[type="text"] {
+    flex: 1;
+    min-width: 200px;
+    padding: 10px 14px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background-color: #fff;
+    color: #333;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.chesscom-import input[type="text"]:focus {
+    border-color: #ff6b6b;
+    box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.2);
+}
+
+.chesscom-import input[type="text"]::placeholder {
+    color: #999;
+}
+
+#fetch-games-btn {
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+
+#fetch-games-btn:hover {
+    background-color: #f5f5f5;
+    border-color: #999;
+}
+
+#fetch-games-btn:active {
+    background-color: #e0e0e0;
+}
+
+.game-selection {
+    margin: 20px 0;
+}
+
+#game-dropdown {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background-color: #fff;
+    cursor: pointer;
+}
+
+#game-details {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.loading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #666;
+}
+
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #ff6b6b;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.error-message {
+    color: #dc3545;
+    padding: 10px;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 6px;
+    margin-top: 10px;
+}
+
+.success-message {
+    color: #155724;
+    padding: 10px;
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    border-radius: 6px;
+    margin-top: 10px;
+}
+</style>
+
+================================================================================
+PART 3: JAVASCRIPT FRONTEND LOGIC
+================================================================================
+
+<script>
+// Store fetched games globally
+let fetchedGames = {};
+
+async function fetchChesscomGames() {
+    const usernameInput = document.getElementById('chesscom-username');
+    const fetchBtn = document.getElementById('fetch-games-btn');
+    const gameSelectionContainer = document.getElementById('game-selection-container');
+    const gameDropdown = document.getElementById('game-dropdown');
+
+    const username = usernameInput.value.trim().toLowerCase();
+
+    if (!username) {
+        showMessage('Please enter a Chess.com username', 'error');
+        return;
+    }
+
+    // Show loading state
+    fetchBtn.disabled = true;
+    fetchBtn.innerHTML = '<span class="spinner"></span> Fetching...';
+
+    try {
+        // Call your Python backend API
+        const response = await fetch(`/api/chesscom/games/${username}?num_games=5`);
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to fetch games');
+        }
+
+        const data = await response.json();
+        fetchedGames = data.games;
+
+        // Populate dropdown
+        gameDropdown.innerHTML = '<option value="">-- Select a game --</option>';
+
+        for (const [label, gameData] of Object.entries(fetchedGames)) {
+            const option = document.createElement('option');
+            option.value = label;
+            option.textContent = label;
+            gameDropdown.appendChild(option);
+        }
+
+        gameSelectionContainer.style.display = 'block';
+        showMessage(`Found ${Object.keys(fetchedGames).length} recent games!`, 'success');
+
+    } catch (error) {
+        showMessage(error.message, 'error');
+        gameSelectionContainer.style.display = 'none';
+    } finally {
+        fetchBtn.disabled = false;
+        fetchBtn.innerHTML = '<span>&#x1F4E5;</span> Fetch Games';
+    }
+}
+
+function loadSelectedGame() {
+    const gameDropdown = document.getElementById('game-dropdown');
+    const gameDetails = document.getElementById('game-details');
+    const pgnTextarea = document.getElementById('pgn-input'); // Your PGN input area
+
+    const selectedLabel = gameDropdown.value;
+
+    if (!selectedLabel || !fetchedGames[selectedLabel]) {
+        gameDetails.innerHTML = '';
+        return;
+    }
+
+    const game = fetchedGames[selectedLabel];
+    const meta = game.metadata;
+
+    // Show game details
+    gameDetails.innerHTML = `
+        <p><strong>White:</strong> ${meta.white} (${meta.white_rating})</p>
+        <p><strong>Black:</strong> ${meta.black} (${meta.black_rating})</p>
+        <p><strong>Time Control:</strong> ${meta.time_class} (${meta.time_control})</p>
+        ${meta.url ? `<p><a href="${meta.url}" target="_blank">View on Chess.com</a></p>` : ''}
+    `;
+
+    // Load PGN into the analysis input
+    if (pgnTextarea) {
+        pgnTextarea.value = game.pgn;
+    }
+}
+
+function showMessage(message, type) {
+    // Remove any existing messages
+    const existing = document.querySelector('.error-message, .success-message');
+    if (existing) existing.remove();
+
+    const div = document.createElement('div');
+    div.className = type === 'error' ? 'error-message' : 'success-message';
+    div.textContent = message;
+
+    const container = document.querySelector('.chesscom-import');
+    container.parentNode.insertBefore(div, container.nextSibling);
+
+    // Auto-remove after 5 seconds
+    setTimeout(() => div.remove(), 5000);
+}
+
+// Allow Enter key to trigger fetch
+document.getElementById('chesscom-username').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        fetchChesscomGames();
+    }
+});
+</script>
+
+================================================================================
+PART 4: PYTHON BACKEND (Flask/FastAPI)
+================================================================================
+
+4.1 FLASK IMPLEMENTATION
+------------------------
+
+from flask import Flask, jsonify, request
+from datetime import datetime
+import requests
+import time
+import re
+
+app = Flask(__name__)
+
+def extract_pgn_moves(pgn_text):
+    """Extract just the moves from PGN (remove headers and annotations)"""
+    lines = pgn_text.split('\n')
+    move_lines = []
+
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith('['):
+            continue
+        move_lines.append(line)
+
+    moves_text = ' '.join(move_lines)
+
+    # Remove annotations
+    moves_text = re.sub(r'\{[^}]*\}', '', moves_text)      # {comments}
+    moves_text = re.sub(r'\([^)]*\)', '', moves_text)      # (variations)
+    moves_text = re.sub(r'\[%[^\]]*\]', '', moves_text)    # [%clk annotations]
+    moves_text = re.sub(r'\s+', ' ', moves_text).strip()
+
+    return moves_text
+
+
+@app.route('/api/chesscom/games/<username>')
+def get_chesscom_games(username):
+    """
+    Fetch recent games from Chess.com for a given username.
+
+    Query params:
+        num_games: Number of games to fetch (default: 5, max: 20)
+
+    Returns:
+        {
+            "games": {
+                "Game 1: vs Opponent (Win as White) - blitz - Dec 5": {
+                    "pgn": "1. e4 e5 ...",
+                    "metadata": {...}
+                },
+                ...
+            }
+        }
+    """
+    username = username.lower().strip()
+    num_games = min(int(request.args.get('num_games', 5)), 20)
+
+    if not username:
+        return jsonify({"error": "Username is required"}), 400
+
+    headers = {
+        'User-Agent': 'Chess Coach App (Python/requests)'
+    }
+
+    games_dict = {}
+
+    try:
+        # Get current month's archive
+        now = datetime.now()
+        year = now.year
+        month = str(now.month).zfill(2)
+
+        archive_url = f"https://api.chess.com/pub/player/{username}/games/{year}/{month}"
+        response = requests.get(archive_url, headers=headers, timeout=10)
+
+        games_list = []
+
+        if response.ok:
+            data = response.json()
+            if 'games' in data:
+                games_list.extend(data['games'])
+        elif response.status_code == 404:
+            return jsonify({"error": "User not found on Chess.com"}), 404
+
+        # If not enough games, try previous month
+        if len(games_list) < num_games:
+            prev_month = now.month - 1
+            prev_year = now.year
+            if prev_month == 0:
+                prev_month = 12
+                prev_year -= 1
+
+            prev_url = f"https://api.chess.com/pub/player/{username}/games/{prev_year}/{str(prev_month).zfill(2)}"
+            time.sleep(0.5)  # Rate limiting
+            prev_response = requests.get(prev_url, headers=headers, timeout=10)
+
+            if prev_response.ok:
+                prev_data = prev_response.json()
+                if 'games' in prev_data:
+                    games_list.extend(prev_data['games'])
+
+        # Sort by end_time (most recent first)
+        games_list.sort(key=lambda g: g.get('end_time', 0), reverse=True)
+        recent_games = games_list[:num_games]
+
+        # Build response dictionary
+        for idx, game in enumerate(recent_games, 1):
+            if 'pgn' not in game:
+                continue
+
+            white = game.get('white', {})
+            black = game.get('black', {})
+            white_username = white.get('username', 'Unknown')
+            black_username = black.get('username', 'Unknown')
+            white_result = white.get('result', '')
+            black_result = black.get('result', '')
+
+            # Determine result from player's perspective
+            if username.lower() == white_username.lower():
+                opponent = black_username
+                if white_result == 'win':
+                    result_display = 'Win'
+                elif black_result == 'win':
+                    result_display = 'Loss'
+                else:
+                    result_display = 'Draw'
+                player_color = 'White'
+            else:
+                opponent = white_username
+                if black_result == 'win':
+                    result_display = 'Win'
+                elif white_result == 'win':
+                    result_display = 'Loss'
+                else:
+                    result_display = 'Draw'
+                player_color = 'Black'
+
+            # Format date
+            end_time = game.get('end_time', 0)
+            game_date = datetime.fromtimestamp(end_time).strftime('%b %d') if end_time else 'Unknown'
+
+            time_class = game.get('time_class', 'unknown')
+
+            # Create label
+            label = f"Game {idx}: vs {opponent} ({result_display} as {player_color}) - {time_class} - {game_date}"
+
+            # Clean PGN (remove annotations for cleaner display)
+            clean_pgn = extract_pgn_moves(game['pgn'])
+
+            games_dict[label] = {
+                'pgn': clean_pgn,
+                'metadata': {
+                    'white': white_username,
+                    'black': black_username,
+                    'white_rating': white.get('rating', '?'),
+                    'black_rating': black.get('rating', '?'),
+                    'result': game.get('result', 'Unknown'),
+                    'time_class': time_class,
+                    'time_control': game.get('time_control', ''),
+                    'url': game.get('url', ''),
+                    'end_time': end_time
+                }
+            }
+
+        return jsonify({"games": games_dict})
+
+    except requests.exceptions.Timeout:
+        return jsonify({"error": "Request timed out. Please try again."}), 504
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": f"Network error: {str(e)}"}), 502
+    except Exception as e:
+        return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
+
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)
+
+
+4.2 FASTAPI IMPLEMENTATION (Alternative)
+-----------------------------------------
+
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from datetime import datetime
+import httpx
+import asyncio
+import re
+
+app = FastAPI()
+
+# Enable CORS for frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+def extract_pgn_moves(pgn_text: str) -> str:
+    """Extract just the moves from PGN"""
+    lines = pgn_text.split('\n')
+    move_lines = [l.strip() for l in lines if l.strip() and not l.startswith('[')]
+    moves_text = ' '.join(move_lines)
+    moves_text = re.sub(r'\{[^}]*\}', '', moves_text)
+    moves_text = re.sub(r'\([^)]*\)', '', moves_text)
+    moves_text = re.sub(r'\[%[^\]]*\]', '', moves_text)
+    return re.sub(r'\s+', ' ', moves_text).strip()
+
+
+@app.get("/api/chesscom/games/{username}")
+async def get_chesscom_games(username: str, num_games: int = Query(5, le=20)):
+    username = username.lower().strip()
+
+    if not username:
+        raise HTTPException(status_code=400, detail="Username is required")
+
+    headers = {'User-Agent': 'Chess Coach App (Python/httpx)'}
+    games_dict = {}
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            now = datetime.now()
+            year = now.year
+            month = str(now.month).zfill(2)
+
+            url = f"https://api.chess.com/pub/player/{username}/games/{year}/{month}"
+            response = await client.get(url, headers=headers)
+
+            games_list = []
+
+            if response.status_code == 200:
+                data = response.json()
+                games_list.extend(data.get('games', []))
+            elif response.status_code == 404:
+                raise HTTPException(status_code=404, detail="User not found")
+
+            # Fetch previous month if needed
+            if len(games_list) < num_games:
+                prev_month = now.month - 1
+                prev_year = now.year
+                if prev_month == 0:
+                    prev_month = 12
+                    prev_year -= 1
+
+                await asyncio.sleep(0.5)
+                prev_url = f"https://api.chess.com/pub/player/{username}/games/{prev_year}/{str(prev_month).zfill(2)}"
+                prev_response = await client.get(prev_url, headers=headers)
+
+                if prev_response.status_code == 200:
+                    games_list.extend(prev_response.json().get('games', []))
+
+            # Sort and process games
+            games_list.sort(key=lambda g: g.get('end_time', 0), reverse=True)
+
+            for idx, game in enumerate(games_list[:num_games], 1):
+                if 'pgn' not in game:
+                    continue
+
+                white = game.get('white', {})
+                black = game.get('black', {})
+                white_username = white.get('username', 'Unknown')
+                black_username = black.get('username', 'Unknown')
+
+                is_white = username.lower() == white_username.lower()
+                opponent = black_username if is_white else white_username
+                player_color = 'White' if is_white else 'Black'
+
+                player_result = white.get('result') if is_white else black.get('result')
+                opponent_result = black.get('result') if is_white else white.get('result')
+
+                if player_result == 'win':
+                    result_display = 'Win'
+                elif opponent_result == 'win':
+                    result_display = 'Loss'
+                else:
+                    result_display = 'Draw'
+
+                end_time = game.get('end_time', 0)
+                game_date = datetime.fromtimestamp(end_time).strftime('%b %d') if end_time else 'Unknown'
+                time_class = game.get('time_class', 'unknown')
+
+                label = f"Game {idx}: vs {opponent} ({result_display} as {player_color}) - {time_class} - {game_date}"
+
+                games_dict[label] = {
+                    'pgn': extract_pgn_moves(game['pgn']),
+                    'metadata': {
+                        'white': white_username,
+                        'black': black_username,
+                        'white_rating': white.get('rating', '?'),
+                        'black_rating': black.get('rating', '?'),
+                        'time_class': time_class,
+                        'time_control': game.get('time_control', ''),
+                        'url': game.get('url', ''),
+                        'end_time': end_time
+                    }
+                }
+
+            return {"games": games_dict}
+
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="Request timed out")
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=502, detail=f"Network error: {str(e)}")
+
+================================================================================
+PART 5: COMPLETE HTML FILE EXAMPLE
+================================================================================
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Coach - Game Import</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #ff6b6b;
+            padding-bottom: 10px;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .chesscom-import {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .chesscom-import input[type="text"] {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px 14px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            background-color: #fff;
+            color: #333;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .chesscom-import input[type="text"]:focus {
+            border-color: #ff6b6b;
+            box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.2);
+        }
+
+        .chesscom-import input[type="text"]::placeholder {
+            color: #999;
+        }
+
+        #fetch-games-btn {
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        #fetch-games-btn:hover {
+            background-color: #f5f5f5;
+            border-color: #999;
+        }
+
+        #fetch-games-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .game-selection {
+            margin-top: 20px;
+        }
+
+        .game-selection label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        #game-dropdown {
+            width: 100%;
+            padding: 10px 14px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            background-color: #fff;
+            cursor: pointer;
+        }
+
+        #game-details {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        #game-details p {
+            margin: 5px 0;
+        }
+
+        #game-details a {
+            color: #ff6b6b;
+        }
+
+        .pgn-section {
+            margin-top: 20px;
+        }
+
+        .pgn-section label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        #pgn-input {
+            width: 100%;
+            height: 150px;
+            padding: 12px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 13px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            resize: vertical;
+        }
+
+        #analyze-btn {
+            margin-top: 15px;
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #fff;
+            background-color: #ff6b6b;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        #analyze-btn:hover {
+            background-color: #e05555;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ccc;
+            border-top: 2px solid #333;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            color: #dc3545;
+            padding: 10px;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+
+        .success-message {
+            color: #155724;
+            padding: 10px;
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>&#9823; Chess Coach - Game Analysis</h1>
+
+    <div class="card">
+        <h3>Import from Chess.com</h3>
+        <div class="chesscom-import">
+            <input
+                type="text"
+                id="chesscom-username"
+                placeholder="Enter your Chess.com username"
+                aria-label="Chess.com Username"
+            >
+            <button type="button" id="fetch-games-btn" onclick="fetchChesscomGames()">
+                &#x1F4E5; Fetch Games
+            </button>
+        </div>
+
+        <div class="game-selection" id="game-selection-container" style="display: none;">
+            <label for="game-dropdown">Select a game to analyze:</label>
+            <select id="game-dropdown" onchange="loadSelectedGame()">
+                <option value="">-- Select a game --</option>
+            </select>
+            <div id="game-details"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Or Paste PGN Manually</h3>
+        <div class="pgn-section">
+            <label for="pgn-input">PGN or Moves:</label>
+            <textarea
+                id="pgn-input"
+                placeholder="1. e4 e5 2. Nf3 Nc6 3. Bb5 a6..."
+            ></textarea>
+        </div>
+        <button type="button" id="analyze-btn">&#x1F50D; Analyze Game</button>
+    </div>
+
+    <script>
+        let fetchedGames = {};
+
+        async function fetchChesscomGames() {
+            const usernameInput = document.getElementById('chesscom-username');
+            const fetchBtn = document.getElementById('fetch-games-btn');
+            const gameSelectionContainer = document.getElementById('game-selection-container');
+            const gameDropdown = document.getElementById('game-dropdown');
+
+            const username = usernameInput.value.trim().toLowerCase();
+
+            if (!username) {
+                showMessage('Please enter a Chess.com username', 'error');
+                return;
+            }
+
+            // Clear previous messages
+            clearMessages();
+
+            // Show loading state
+            fetchBtn.disabled = true;
+            fetchBtn.innerHTML = '<span class="spinner"></span> Fetching...';
+
+            try {
+                const response = await fetch(`/api/chesscom/games/${username}?num_games=5`);
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || error.error || 'Failed to fetch games');
+                }
+
+                const data = await response.json();
+                fetchedGames = data.games;
+
+                // Check if any games found
+                if (Object.keys(fetchedGames).length === 0) {
+                    showMessage('No games found for this user', 'error');
+                    gameSelectionContainer.style.display = 'none';
+                    return;
+                }
+
+                // Populate dropdown
+                gameDropdown.innerHTML = '<option value="">-- Select a game --</option>';
+
+                for (const label of Object.keys(fetchedGames)) {
+                    const option = document.createElement('option');
+                    option.value = label;
+                    option.textContent = label;
+                    gameDropdown.appendChild(option);
+                }
+
+                gameSelectionContainer.style.display = 'block';
+                showMessage(`Found ${Object.keys(fetchedGames).length} recent games!`, 'success');
+
+            } catch (error) {
+                showMessage(error.message, 'error');
+                gameSelectionContainer.style.display = 'none';
+            } finally {
+                fetchBtn.disabled = false;
+                fetchBtn.innerHTML = '&#x1F4E5; Fetch Games';
+            }
+        }
+
+        function loadSelectedGame() {
+            const gameDropdown = document.getElementById('game-dropdown');
+            const gameDetails = document.getElementById('game-details');
+            const pgnTextarea = document.getElementById('pgn-input');
+
+            const selectedLabel = gameDropdown.value;
+
+            if (!selectedLabel || !fetchedGames[selectedLabel]) {
+                gameDetails.innerHTML = '';
+                return;
+            }
+
+            const game = fetchedGames[selectedLabel];
+            const meta = game.metadata;
+
+            // Show game details
+            gameDetails.innerHTML = `
+                <p><strong>White:</strong> ${meta.white} (${meta.white_rating})</p>
+                <p><strong>Black:</strong> ${meta.black} (${meta.black_rating})</p>
+                <p><strong>Time Control:</strong> ${meta.time_class} (${meta.time_control})</p>
+                ${meta.url ? `<p><a href="${meta.url}" target="_blank">View on Chess.com &#x2197;</a></p>` : ''}
+            `;
+
+            // Load PGN into textarea
+            pgnTextarea.value = game.pgn;
+        }
+
+        function showMessage(message, type) {
+            clearMessages();
+
+            const div = document.createElement('div');
+            div.className = type === 'error' ? 'error-message' : 'success-message';
+            div.textContent = message;
+
+            const container = document.querySelector('.chesscom-import');
+            container.parentNode.insertBefore(div, container.nextSibling);
+
+            setTimeout(() => div.remove(), 5000);
+        }
+
+        function clearMessages() {
+            const existing = document.querySelectorAll('.error-message, .success-message');
+            existing.forEach(el => el.remove());
+        }
+
+        // Enter key triggers fetch
+        document.getElementById('chesscom-username').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                fetchChesscomGames();
+            }
+        });
+    </script>
+</body>
+</html>
+
+================================================================================
+PART 6: SERVING THE HTML WITH PYTHON
+================================================================================
+
+6.1 SIMPLE FLASK SERVER
+------------------------
+
+from flask import Flask, send_from_directory, jsonify, request
+# ... include the API endpoint code from Part 4.1 ...
+
+# Serve static HTML
+@app.route('/')
+def index():
+    return send_from_directory('.', 'index.html')
+
+@app.route('/<path:path>')
+def static_files(path):
+    return send_from_directory('.', path)
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)
+
+
+6.2 RUN INSTRUCTIONS
+--------------------
+
+1. Save the Flask code to `server.py`
+2. Save the HTML to `index.html` in the same directory
+3. Install dependencies: pip install flask requests
+4. Run: python server.py
+5. Open: http://localhost:5000
+
+================================================================================
+PART 7: ERROR HANDLING & EDGE CASES
+================================================================================
+
+Common Error Cases to Handle:
+-----------------------------
+1. User not found (404) - Show "User not found on Chess.com"
+2. No games in current/previous month - Show "No recent games found"
+3. Network timeout - Show "Request timed out, please try again"
+4. Rate limited (429) - Show "Too many requests, wait a moment"
+5. Invalid username format - Validate before API call
+6. Empty PGN in game data - Skip game silently
+
+Username Validation:
+--------------------
+function validateUsername(username) {
+    // Chess.com usernames: 3-25 chars, alphanumeric + underscore
+    const pattern = /^[a-zA-Z0-9_]{3,25}$/;
+    return pattern.test(username);
+}
+
+================================================================================
+SUMMARY
+================================================================================
+
+This implementation provides:
+1. HTML frontend with username input and fetch button (matching Streamlit style)
+2. JavaScript for async API calls and dynamic UI updates
+3. Python Flask/FastAPI backend that proxies Chess.com API
+4. Game selection dropdown that auto-populates PGN input
+5. Game metadata display (players, ratings, time control, link)
+6. Error handling and loading states
+7. Clean, responsive CSS styling
+
+The architecture separates concerns:
+- Frontend: HTML/CSS/JS handles UI and user interaction
+- Backend: Python handles Chess.com API calls (avoids CORS issues)
+- API: RESTful endpoint returns structured JSON for easy consumption
