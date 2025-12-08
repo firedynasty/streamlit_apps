@@ -551,7 +551,10 @@
     <!-- Board and Navigation (horizontal layout) -->
     <div style="display: flex; gap: 20px; flex-wrap: wrap; margin: 20px auto; max-width: 1200px; align-items: flex-start;">
       <!-- Chess Board -->
-      <div id="myBoard2" style="width: 400px; flex-shrink: 0;"></div>
+      <div style="flex-shrink: 0;">
+        <p style="color: #888; font-size: 12px; margin: 0 0 8px 0; font-style: italic;">Note: Chess piece images will load fully when choosing 'Next'</p>
+        <div id="myBoard2" style="width: 400px;"></div>
+      </div>
 
       <!-- Board Navigation Container -->
       <div id="board2NavContainer" style="display: block; padding: 15px; background: #16213e; border-radius: 8px; flex: 1; min-width: 300px;">
@@ -1727,6 +1730,27 @@
 
             pgnTextarea.value = game.pgn;
             log('Loaded game: ' + selectedLabel, 'info');
+
+            // Load PGN into board2 for navigation
+            if (game.pgn && typeof window.parsePgnToPositions === 'function') {
+                let cleanedPgn = game.pgn;
+                if (typeof AnalysisChess !== 'undefined') {
+                    cleanedPgn = AnalysisChess.cleanPgn(game.pgn);
+                } else if (typeof cleanPgn === 'function') {
+                    cleanedPgn = cleanPgn(game.pgn);
+                }
+
+                window.studyReportPositions = window.parsePgnToPositions(cleanedPgn);
+                window.studyReportPositionIndex = 0;
+
+                if (window.studyReportPositions && window.studyReportPositions.length > 0) {
+                    if (window.board2) {
+                        window.board2.position(window.studyReportPositions[0]);
+                        updateBoard2MoveIndicator(0);
+                    }
+                    log(`Loaded ${window.studyReportPositions.length} positions to board`, 'success');
+                }
+            }
         }
 
         // =====================================================================
