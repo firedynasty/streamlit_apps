@@ -397,12 +397,16 @@
     <h1>Chess Game Analyzer</h1>
     <p style="text-align: center; color: #888;">Powered by Stockfish.js (runs in your browser - no server needed!)</p>
 
-    <div class="status-bar">
+    <div class="status-bar" style="display: none;">
         <div class="status-indicator">
             <div class="status-dot" id="statusDot"></div>
             <span id="statusText">Loading Stockfish...</span>
         </div>
         <div id="engineInfo" style="color: #888; font-size: 12px;"></div>
+    </div>
+
+    <div class="status-bar">
+        <a href="https://youtu.be/fwPcoDfQwyo" target="_blank" style="background: #0f3460; color: #00d4ff; padding: 8px 16px; border-radius: 4px; text-decoration: none; font-size: 14px;">Tutorial ↗</a>
     </div>
 
     <!-- Chess.com Import Section -->
@@ -456,7 +460,7 @@
             </label>
             <textarea id="pgnInput" placeholder="1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O"></textarea>
 
-            <div style="margin-top: 15px;">
+            <div style="margin-top: 15px; display: none;">
                 <label style="display: block; margin-bottom: 8px; color: #888; font-size: 12px;">
                     Or analyze a single position (FEN)
                 </label>
@@ -465,7 +469,7 @@
 
             <div style="margin-top: 15px;">
                 <button id="analyzeBtn" onclick="analyzeGame()" disabled>Analyze Game</button>
-                <button id="analyzeFenBtn" onclick="analyzeFen()" disabled style="background: #0f3460; color: #00d4ff;">Analyze Position</button>
+                <button id="analyzeFenBtn" onclick="analyzeFen()" disabled style="background: #0f3460; color: #00d4ff; display: none;">Analyze Position</button>
                 <button onclick="clearResults()" style="background: #333; color: #888;">Clear</button>
             </div>
 
@@ -1275,7 +1279,7 @@
             const selectedLabel = gameDropdown ? gameDropdown.value : '';
             if (selectedLabel && fetchedGames[selectedLabel]) {
                 const meta = fetchedGames[selectedLabel].metadata;
-                report += `Game: ${meta.white} (${meta.white_rating}) vs ${meta.black} (${meta.black_rating}) | ${meta.time_class} (${meta.time_control}) | Result: ${meta.result}${meta.url ? ' | ' + meta.url : ''}\n\n`;
+                report += `Game: White: ${meta.white} (${meta.white_rating}) vs Black: ${meta.black} (${meta.black_rating}) | ${meta.time_class} (${meta.time_control}) | Result: ${meta.result}${meta.url ? ' | ' + meta.url : ''}\n\n`;
             }
 
             // Game PGN
