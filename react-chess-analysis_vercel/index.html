@@ -507,11 +507,7 @@
             <div id="analysisReportContainer" style="display: none; margin-top: 15px; max-width: 800px; box-sizing: border-box;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
                     <span style="font-weight: bold; color: #00d4ff;">Full Analysis Report</span>
-                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                        <button id="goToLichessFromHighlight" style="background: #629924; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">♞ Lichess from Highlight</button>
-                        <button id="loadPgnFromHighlight" style="background: #17a2b8; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">Load PGN from Highlight</button>
-                        <button id="toggleReportBtn" style="background: #0f3460; color: #00d4ff; padding: 6px 12px; font-size: 12px; border: none; border-radius: 6px; cursor: pointer;">Hide Report</button>
-                    </div>
+                    <button id="toggleReportBtn" style="background: #0f3460; color: #00d4ff; padding: 6px 12px; font-size: 12px; border: none; border-radius: 6px; cursor: pointer;">Hide Report</button>
                 </div>
                 <div id="analysisReportText" style="
                     background: #ffffff;
@@ -529,6 +525,10 @@
                     border: 1px solid #ccc;
                     box-sizing: border-box;
                 ">Loading report...</div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
+                    <button id="loadPgnFromHighlight" style="background: #17a2b8; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">Load PGN from Highlight</button>
+                    <button id="loadFenVariantFromHighlight" style="background: #6f42c1; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">Load [Fen Variant] from Highlight</button>
+                </div>
             </div>
         </div>
     </div>
@@ -566,7 +566,7 @@
           <button id="flip_board2" style="background: #00d4ff; color: #1a1a2e; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold;">Flip Board</button>
           <a id="lichessBoard2Link" href="#" target="_blank" style="color: #00d4ff; text-decoration: underline;">Go to Lichess (Analysis)</a>
           <button id="loadPgnFromClipboard" style="background: #28a745; color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold;">Load PGN from Clipboard</button>
-          <button id="goToLichessFromClipboard" style="background: #629924; color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold;">♞ Lichess from Clipboard (FEN)</button>
+          <button id="reloadGameFromReport" style="background: #fd7e14; color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold;">Reload Game from Report</button>
         </div>
       </div>
     </div>
@@ -1772,18 +1772,44 @@
         const pieceThemePath = 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png';
 
         /**
+         * Check if text matches [Variant "From Position"][FEN "..."] format
+         */
+        window.isVariantFenContent = function(text) {
+            if (!text || typeof text !== 'string') return false;
+            const cleanText = text.trim();
+            // Matches: [Variant "From Position"][FEN "rnbqkbnr/..."] optionally followed by moves
+            return /\[Variant\s+"From\s+Position"\]\s*\[FEN\s+"[^"]+"\]/.test(cleanText);
+        };
+
+        /**
          * Parse PGN notation to array of FEN positions
+         * Supports both standard PGN and [Variant "From Position"][FEN "..."] format
          */
         window.parsePgnToPositions = function(pgnString) {
             const positions = [];
             try {
                 const chess = new Chess();
+
+                // Check if text has a FEN header (from Variant format or standard PGN)
+                const fenMatch = pgnString.match(/\[FEN\s+"([^"]+)"\]/);
+                if (fenMatch) {
+                    const startingFen = fenMatch[1];
+                    try {
+                        chess.load(startingFen);
+                    } catch (fenError) {
+                        console.warn('Failed to load FEN, using standard position:', fenError);
+                        chess.reset();
+                    }
+                }
+
                 positions.push(chess.fen()); // Starting position
 
-                // Clean PGN
+                // Clean PGN - remove headers, comments, variations
                 let cleanPgn = pgnString
+                    .replace(/\[.*?\]/g, '') // Remove all headers [...]
                     .replace(/\{[^}]*\}/g, '') // Remove comments
                     .replace(/\([^)]*\)/g, '') // Remove variations
+                    .replace(/\$\d+/g, '') // Remove NAG symbols $1, $2, etc.
                     .replace(/\d+\.\.\./g, '') // Remove black move indicators
                     .replace(/\s+/g, ' ')
                     .trim();
@@ -1910,6 +1936,12 @@
             if (pgnMatch && pgnMatch[1]) {
                 let pgnText = pgnMatch[1].trim();
                 pgnText = pgnText.replace(/\s+/g, ' ').trim();
+
+                // Also populate the pgnInput textarea so "Reload Game from Report" works
+                const pgnTextarea = document.getElementById('pgnInput');
+                if (pgnTextarea) {
+                    pgnTextarea.value = pgnText;
+                }
 
                 if (typeof window.parsePgnToPositions === 'function') {
                     window.studyReportPositions = window.parsePgnToPositions(pgnText);
@@ -2090,24 +2122,44 @@
                 });
             }
 
-            // Go to Lichess from Clipboard (FEN) Button
-            const goToLichessFromClipboardBtn = document.getElementById('goToLichessFromClipboard');
-            if (goToLichessFromClipboardBtn) {
-                goToLichessFromClipboardBtn.addEventListener('click', async function() {
-                    try {
-                        const clipboardText = await navigator.clipboard.readText();
-                        if (!clipboardText || clipboardText.trim() === '') {
-                            alert('Clipboard is empty. Please copy a FEN first.');
-                            return;
-                        }
+            // Reload Game from Report Button
+            const reloadGameFromReportBtn = document.getElementById('reloadGameFromReport');
+            if (reloadGameFromReportBtn) {
+                reloadGameFromReportBtn.addEventListener('click', function() {
+                    const pgnTextarea = document.getElementById('pgnInput');
+                    if (!pgnTextarea || !pgnTextarea.value.trim()) {
+                        alert('No game PGN available. Please analyze a game first.');
+                        return;
+                    }
 
-                        const fen = clipboardText.trim();
-                        const lichessUrl = `https://lichess.org/analysis/${fen.replace(/ /g, '_')}`;
-                        window.open(lichessUrl, '_blank');
-                        log('Opening Lichess analysis for FEN: ' + fen, 'success');
-                    } catch (err) {
-                        console.error('Failed to read clipboard:', err);
-                        alert('Could not read clipboard. Please check permissions.');
+                    let pgnText = pgnTextarea.value.trim();
+
+                    // Clean the PGN
+                    if (typeof cleanPgn === 'function') {
+                        pgnText = cleanPgn(pgnText);
+                    } else {
+                        pgnText = pgnText.split('\n')
+                            .filter(line => !line.trim().startsWith('['))
+                            .join(' ')
+                            .replace(/\s+/g, ' ')
+                            .trim();
+                    }
+
+                    if (typeof window.parsePgnToPositions === 'function') {
+                        window.studyReportPositions = window.parsePgnToPositions(pgnText);
+                        window.studyReportPositionIndex = 0;
+
+                        if (window.studyReportPositions && window.studyReportPositions.length > 0) {
+                            if (window.board2) {
+                                window.board2.position(window.studyReportPositions[0]);
+                                updateBoard2MoveIndicator(0);
+                            }
+                            log(`Reloaded ${window.studyReportPositions.length} positions from original game`, 'success');
+                        } else {
+                            alert('Could not parse positions from the game PGN.');
+                        }
+                    } else {
+                        alert('PGN parser not available.');
                     }
                 });
             }
@@ -2918,33 +2970,6 @@ END OF GUIDE
                 });
             }
 
-            // Go to Lichess from Highlight Button
-            const goToLichessBtn = document.getElementById('goToLichessFromHighlight');
-            if (goToLichessBtn) {
-                goToLichessBtn.addEventListener('click', async function() {
-                    const selection = window.getSelection();
-                    const selectedText = selection.toString().trim();
-
-                    if (!selectedText || selectedText === '') {
-                        alert('No text is highlighted. Please highlight/select text containing a FEN first.');
-                        return;
-                    }
-
-                    // Copy highlighted text to clipboard
-                    try {
-                        await navigator.clipboard.writeText(selectedText);
-                        log('Copied to clipboard: ' + selectedText, 'success');
-                    } catch (err) {
-                        console.error('Failed to copy to clipboard:', err);
-                    }
-
-                    // Show confirmation dialog
-                    if (confirm(`Copied to clipboard!\n\nGo to lichess.org/analysis?`)) {
-                        window.open('https://lichess.org/analysis', '_blank');
-                    }
-                });
-            }
-
             // Load PGN from Highlight Button
             const loadPgnFromHighlightBtn = document.getElementById('loadPgnFromHighlight');
             if (loadPgnFromHighlightBtn) {
@@ -2979,6 +3004,43 @@ END OF GUIDE
                                 updateBoard2MoveIndicator(0);
                             }
                             log(`Loaded ${window.studyReportPositions.length} positions from highlighted PGN`, 'success');
+                        }
+                    } else {
+                        alert('PGN parser not available.');
+                    }
+                });
+            }
+
+            // Load [Fen Variant] from Highlight Button
+            const loadFenVariantFromHighlightBtn = document.getElementById('loadFenVariantFromHighlight');
+            if (loadFenVariantFromHighlightBtn) {
+                loadFenVariantFromHighlightBtn.addEventListener('click', function() {
+                    const selection = window.getSelection();
+                    const selectedText = selection.toString().trim();
+
+                    if (!selectedText || selectedText === '') {
+                        alert('No text is highlighted. Please highlight/select text containing [Variant "From Position"][FEN "..."] format.');
+                        return;
+                    }
+
+                    // Check if it's the Variant FEN format
+                    if (!window.isVariantFenContent(selectedText)) {
+                        alert('Selected text does not contain valid [Variant "From Position"][FEN "..."] format.\n\nExpected format:\n[Variant "From Position"]\n[FEN "r1bq1rk1/..."]\n\n12. Qd2 Bxa1 13. Nxe7+ ...');
+                        return;
+                    }
+
+                    if (typeof window.parsePgnToPositions === 'function') {
+                        window.studyReportPositions = window.parsePgnToPositions(selectedText);
+                        window.studyReportPositionIndex = 0;
+
+                        if (window.studyReportPositions && window.studyReportPositions.length > 0) {
+                            if (window.board2) {
+                                window.board2.position(window.studyReportPositions[0]);
+                                updateBoard2MoveIndicator(0);
+                            }
+                            log(`Loaded ${window.studyReportPositions.length} positions from Variant FEN format (starting from custom position)`, 'success');
+                        } else {
+                            alert('Could not parse positions from the selected text.');
                         }
                     } else {
                         alert('PGN parser not available.');
