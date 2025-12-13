@@ -456,6 +456,15 @@ if prompt := st.chat_input("What is up?"):
                         input=prompt
                     )
 
+                    # Log the full response object for debugging
+                    print("=== Web Search Response Debug ===")
+                    print(f"Response type: {type(response_obj)}")
+                    print(f"Response dir: {[attr for attr in dir(response_obj) if not attr.startswith('_')]}")
+                    print(f"output_text: {response_obj.output_text}")
+                    if hasattr(response_obj, 'output'):
+                        print(f"output: {response_obj.output}")
+                    print("=== End Debug ===")
+
                     # Extract the response text
                     response = response_obj.output_text
 

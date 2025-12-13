@@ -143,10 +143,13 @@ def natural_sort_key(s: str) -> List:
 
 
 def scan_folder(folder_path: str) -> List[str]:
-    """Scan folder for .txt files and return sorted list."""
+    """Scan folder for .txt and .md files and return sorted list."""
     if not os.path.exists(folder_path):
         return []
-    found_files = glob.glob(os.path.join(folder_path, "*.txt"))
+    # Find both .txt and .md files
+    txt_files = glob.glob(os.path.join(folder_path, "*.txt"))
+    md_files = glob.glob(os.path.join(folder_path, "*.md"))
+    found_files = txt_files + md_files
     found_files.sort(key=lambda x: natural_sort_key(os.path.basename(x)))
     return found_files
 
@@ -224,12 +227,16 @@ def save_conversation(file_path: str, messages: List[Dict]):
 
 def build_system_prompt(loaded_files: Dict[str, str],
                        socratic_mode: bool = False,
-                       socratic_topic: Optional[str] = None) -> Optional[str]:
+                       socratic_topic: Optional[str] = None,
+                       role_prompt: Optional[str] = None) -> Optional[str]:
     """Build system prompt with file context and optional Socratic coaching."""
     parts = []
 
-    # Add Socratic coaching prompt if enabled
-    if socratic_mode:
+    # Add custom role prompt if provided
+    if role_prompt:
+        parts.append(role_prompt)
+    # Add Socratic coaching prompt if enabled (and no custom role)
+    elif socratic_mode:
         parts.append(SOCRATIC_SYSTEM_PROMPT)
         if socratic_topic:
             parts.append(SOCRATIC_TOPIC_TEMPLATE.format(topic=socratic_topic))
@@ -401,19 +408,22 @@ def stream_response(client: anthropic.Anthropic, model: str,
 
 
 def display_status(socratic_mode: bool, socratic_topic: Optional[str],
-                   model_name: str, loaded_files: Dict[str, str]):
+                   model_name: str, loaded_files: Dict[str, str],
+                   role_name: Optional[str] = None):
     """Display current settings and mode."""
     print(f"\n{Colors.BOLD}Current Settings:{Colors.RESET}")
     print(f"  Model: {Colors.CYAN}{model_name}{Colors.RESET}")
 
-    if socratic_mode:
+    if role_name:
+        print(f"  Role: {Colors.MAGENTA}{role_name}{Colors.RESET}")
+    elif socratic_mode:
         print(f"  Socratic Mode: {Colors.MAGENTA}ON{Colors.RESET}")
         if socratic_topic:
             print(f"  Topic: {Colors.MAGENTA}{socratic_topic}{Colors.RESET}")
         else:
             print(f"  Topic: {Colors.DIM}(none set){Colors.RESET}")
     else:
-        print(f"  Socratic Mode: {Colors.DIM}OFF{Colors.RESET}")
+        print(f"  Role: {Colors.DIM}(none){Colors.RESET}")
 
     if loaded_files:
         print(f"  Files Loaded: {Colors.GREEN}{len(loaded_files)}{Colors.RESET}")
@@ -449,13 +459,190 @@ def main():
     parser.add_argument(
         "-s", "--socratic",
         action="store_true",
-        help="Enable Socratic coaching mode"
+        help="Enable Socratic coaching mode (built-in prompt)"
     )
     parser.add_argument(
         "-t", "--topic",
         help="Set Socratic coaching topic (e.g., 'Python', 'Chess', 'Math')"
     )
+    parser.add_argument(
+        "-r", "--role",
+        help="Role prompt: 'socratic' (built-in), or path to .md/.txt file with custom role"
+    )
+    parser.add_argument(
+        "--export",
+        action="store_true",
+        help="Export loaded files as context and exit (for use with Claude Code)"
+    )
+    parser.add_argument(
+        "--native",
+        action="store_true",
+        help="Export files and role for Claude Code to process natively (no API key needed)"
+    )
+    parser.add_argument(
+        "-o", "--output",
+        help="Output file path for --native or --export mode (default: prints to stdout)"
+    )
     args = parser.parse_args()
+
+    # Export mode: load files and print context for Claude Code, then exit
+    if args.export:
+        loaded_files: Dict[str, str] = {}
+
+        # Load context files if provided
+        if args.files:
+            for file_path in args.files:
+                if os.path.exists(file_path):
+                    content = extract_text(file_path)
+                    filename = os.path.basename(file_path)
+                    loaded_files[filename] = content
+
+        # Scan directory if provided
+        if args.directory:
+            files = scan_folder(args.directory)
+            for file_path in files:
+                content = extract_text(file_path)
+                filename = os.path.basename(file_path)
+                loaded_files[filename] = content
+
+        if not loaded_files:
+            print("No files found to export.")
+            sys.exit(1)
+
+        # Filter out files over 100,000 characters (same limit as web app)
+        MAX_CHARS_FOR_CHAT = 100000
+        included_files = {k: v for k, v in loaded_files.items() if len(v) <= MAX_CHARS_FOR_CHAT}
+        excluded_files = {k: v for k, v in loaded_files.items() if len(v) > MAX_CHARS_FOR_CHAT}
+
+        # Warn about excluded files
+        if excluded_files:
+            print(f"=== WARNING: {len(excluded_files)} FILE(S) EXCLUDED (over {MAX_CHARS_FOR_CHAT:,} chars) ===")
+            for filename, content in excluded_files.items():
+                print(f"  - {filename} ({len(content):,} chars)")
+            print()
+
+        if not included_files:
+            print("No files under the character limit to export.")
+            sys.exit(1)
+
+        # Print file context in a format Claude Code can use
+        print(f"=== CONTEXT FROM {len(included_files)} FILE(S) ===\n")
+        for filename, content in included_files.items():
+            print(f"--- FILE: {filename} ({len(content):,} chars) ---")
+            print(content)
+            print()
+        print(f"=== END OF CONTEXT ===")
+        print(f"\nTotal: {len(included_files)} files, {sum(len(c) for c in included_files.values()):,} characters")
+        if excluded_files:
+            print(f"Excluded: {len(excluded_files)} files over {MAX_CHARS_FOR_CHAT:,} char limit")
+        sys.exit(0)
+
+    # Native mode: export files AND role for Claude Code to process
+    if args.native:
+        loaded_files: Dict[str, str] = {}
+        role_content: Optional[str] = None
+        role_name: Optional[str] = None
+
+        # Handle role
+        if args.role:
+            if args.role.lower() == 'socratic':
+                role_content = SOCRATIC_SYSTEM_PROMPT
+                role_name = "Socratic Coach (built-in)"
+                if args.topic:
+                    role_content += "\n\n" + SOCRATIC_TOPIC_TEMPLATE.format(topic=args.topic)
+            elif os.path.exists(args.role):
+                role_content = extract_text(args.role)
+                role_name = os.path.basename(args.role)
+        elif args.socratic:
+            role_content = SOCRATIC_SYSTEM_PROMPT
+            role_name = "Socratic Coach (built-in)"
+            if args.topic:
+                role_content += "\n\n" + SOCRATIC_TOPIC_TEMPLATE.format(topic=args.topic)
+
+        # Load context files if provided
+        if args.files:
+            for file_path in args.files:
+                if os.path.exists(file_path):
+                    content = extract_text(file_path)
+                    filename = os.path.basename(file_path)
+                    loaded_files[filename] = content
+
+        # Scan directory if provided
+        if args.directory:
+            files = scan_folder(args.directory)
+            for file_path in files:
+                content = extract_text(file_path)
+                filename = os.path.basename(file_path)
+                loaded_files[filename] = content
+
+        # Filter out files over 100,000 characters
+        MAX_CHARS_FOR_CHAT = 100000
+        included_files = {k: v for k, v in loaded_files.items() if len(v) <= MAX_CHARS_FOR_CHAT}
+        excluded_files = {k: v for k, v in loaded_files.items() if len(v) > MAX_CHARS_FOR_CHAT}
+
+        # If no files and no role, use topic or prompt for one
+        if not included_files and not role_content:
+            topic = args.topic
+            if not topic:
+                print("No files or role provided.")
+                try:
+                    topic = input("What would you like to discuss? ").strip()
+                except (EOFError, KeyboardInterrupt):
+                    print("\nExiting.")
+                    sys.exit(1)
+            if not topic:
+                print("No topic provided. Exiting.")
+                sys.exit(1)
+            # Create a simple context with the topic
+            role_content = f"The user wants to discuss: {topic}\n\nPlease help them explore this topic."
+            role_name = f"Topic: {topic}"
+
+        # If we have a role but no files, add topic if provided or prompt
+        elif role_content and not included_files:
+            topic = args.topic
+            if not topic:
+                try:
+                    topic = input("What would you like to discuss? ").strip()
+                except (EOFError, KeyboardInterrupt):
+                    pass  # Continue with just the role
+            if topic:
+                role_content += f"\n\nThe user's question/topic: {topic}"
+
+        # Build the full output
+        output_lines = []
+        if role_content:
+            output_lines.append(f"=== ROLE: {role_name} ===")
+            output_lines.append(role_content)
+            output_lines.append("=== END ROLE ===\n")
+
+        if excluded_files:
+            output_lines.append(f"=== WARNING: {len(excluded_files)} FILE(S) EXCLUDED (over {MAX_CHARS_FOR_CHAT:,} chars) ===")
+            for fn, cont in excluded_files.items():
+                output_lines.append(f"  - {fn} ({len(cont):,} chars)")
+            output_lines.append("")
+
+        if included_files:
+            output_lines.append(f"=== CONTEXT FROM {len(included_files)} FILE(S) ===\n")
+            for fn, cont in included_files.items():
+                output_lines.append(f"--- FILE: {fn} ({len(cont):,} chars) ---")
+                output_lines.append(cont)
+                output_lines.append("")
+            output_lines.append("=== END OF CONTEXT ===")
+            output_lines.append(f"\nTotal: {len(included_files)} files, {sum(len(c) for c in included_files.values()):,} characters")
+
+        output_lines.append("\n=== CLAUDE CODE: Please use the above context and role to assist the user ===")
+
+        full_output = "\n".join(output_lines)
+
+        # Write to file (default: claude_context.txt in current directory)
+        output_file = args.output if args.output else "claude_context.txt"
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(full_output)
+
+        # Print the context directly so Claude Code sees it and can respond
+        print(full_output)
+        print(f"\n[Context also saved to: {output_file}]")
+        sys.exit(0)
 
     print_header()
 
@@ -487,6 +674,23 @@ def main():
     loaded_files: Dict[str, str] = {}
     socratic_mode: bool = args.socratic
     socratic_topic: Optional[str] = args.topic
+    role_prompt: Optional[str] = None
+    role_name: Optional[str] = None
+
+    # Handle --role argument
+    if args.role:
+        if args.role.lower() == 'socratic':
+            # Use built-in Socratic prompt
+            socratic_mode = True
+            role_name = "Socratic Coach (built-in)"
+        elif os.path.exists(args.role):
+            # Load role from file
+            role_prompt = extract_text(args.role)
+            role_name = os.path.basename(args.role)
+            print(f"{Colors.MAGENTA}Role loaded: {role_name} ({len(role_prompt):,} chars){Colors.RESET}")
+        else:
+            print(f"{Colors.YELLOW}Role file not found: {args.role}{Colors.RESET}")
+            print(f"{Colors.YELLOW}Use 'socratic' for built-in, or provide a valid file path{Colors.RESET}")
 
     # Show Socratic mode status if enabled
     if socratic_mode:
@@ -533,8 +737,10 @@ def main():
     # Main chat loop
     while True:
         try:
-            # Show different prompt based on Socratic mode
-            if socratic_mode:
+            # Show different prompt based on role/Socratic mode
+            if role_prompt:
+                prompt_prefix = f"{Colors.MAGENTA}[{role_name}]{Colors.RESET} {Colors.BLUE}{Colors.BOLD}You:{Colors.RESET} "
+            elif socratic_mode:
                 prompt_prefix = f"{Colors.MAGENTA}[Socratic]{Colors.RESET} {Colors.BLUE}{Colors.BOLD}You:{Colors.RESET} "
             else:
                 prompt_prefix = f"{Colors.BLUE}{Colors.BOLD}You:{Colors.RESET} "
@@ -618,7 +824,7 @@ def main():
                         print(f"{Colors.YELLOW}Usage: /topic <name> (e.g., /topic Python){Colors.RESET}")
 
             elif cmd == '/status':
-                display_status(socratic_mode, socratic_topic, model_name, loaded_files)
+                display_status(socratic_mode, socratic_topic, model_name, loaded_files, role_name)
 
             else:
                 print(f"{Colors.YELLOW}Unknown command: {cmd}. Type /help for commands.{Colors.RESET}")
@@ -628,8 +834,8 @@ def main():
         # Add user message
         messages.append({"role": "user", "content": user_input})
 
-        # Build system prompt with file context and Socratic mode
-        system_prompt = build_system_prompt(loaded_files, socratic_mode, socratic_topic)
+        # Build system prompt with file context, Socratic mode, and custom role
+        system_prompt = build_system_prompt(loaded_files, socratic_mode, socratic_topic, role_prompt)
 
         # Stream response
         if model_id == "claude-opus-4-5-20251101":

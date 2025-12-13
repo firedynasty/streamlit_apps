@@ -1,0 +1,8 @@
+=== ROLE: Topic: writing in jyutping ===
+The user wants to discuss: writing in jyutping
+
+Please help them explore this topic.
+=== END ROLE ===
+
+
+=== CLAUDE CODE: Please use the above context and role to assist the user ===
