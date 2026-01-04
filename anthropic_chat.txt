@@ -1,1 +1,64 @@
 streamlit run on this will allow for chat with anthropic instead of openai
+
+
+
+python anthropic_chat_cli.py -c "summarize" --native 
+
+
+
+then this will allow you to chat with Claude Code within the Terminal
+
+
+
+  Command-line Arguments:
+  - -f, --files - Text files to load as context
+  - -c, --conversation - Load a conversation file to continue
+  - -d, --directory - Directory to scan for text files
+  - --model - Claude model (1/haiku, 2/sonnet, 3/sonnet4, 4/opus)
+  - -s, --socratic - Enable Socratic coaching mode
+  - -t, --topic - Set Socratic coaching topic
+  - -r, --role - Role prompt (path to .md/.txt file or 'socratic')
+  - --export - Export loaded files as context and exit
+  - --native - Export files and role for Claude Code
+  - -o, --output - Output file path for --native or --export mode
+  - -C, --clipboard - Read content from clipboard
+  - prompt - Instruction/prompt for Claude (positional arg)
+
+  Interactive Slash Commands:
+  - /help - Show help message
+  - /files - List loaded context files
+  - /load <path> - Load a text file as context
+  - /clear - Clear conversation history
+  - /save <path> - Save conversation to file
+  - /model - Change Claude model
+  - /history - Show conversation history
+  - /quit, /exit, /q - Exit the program
+  - /socratic - Toggle Socratic coaching mode
+  - /topic <name> - Set coaching topic
+  - /status - Show current mode and settings
+
+  Model Aliases:
+  - haiku → Claude 3.5 Haiku
+  - sonnet → Claude 3.5 Sonnet
+  - sonnet4 → Claude Sonnet 4
+  - opus → Claude Opus 4.5
+
+
+
+(python anthropic_chat_cli.py --rag rag_novel --native "who is Funaki? what is Funaki's role? Funaki and Honma relationship") timeout: 5m 0s
+  ⎿  Retrieving from rag_novel knowledge base for: who is Funaki? what is Funaki's role? Funaki and Honma relationship
+     Retrieved 14,124 chars of context
+     === ROLE: RAG Assistant (rag_novel) ===
+     … +372 lines (ctrl+o to expand)
+
+
+  Would you like me to check why the script didn't produce an AI-generated response, or run it differently?
+
+
+
+> the script shoudn't produce an AI generated response but run so that 
+/Users/stanleytan/Documents/25-technical/01-github/streamlit_apps/claude_context.txt  is created to feed into Claude code here skipping the 
+API requirment 
+
+⏺ Got it! The script is a RAG context preparation tool that creates the context file for use here in Claude Code. Let me read the saved context and answer your question:
+

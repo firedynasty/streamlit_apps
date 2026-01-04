@@ -1,8 +1,269 @@
-=== ROLE: Topic: writing in jyutping ===
-The user wants to discuss: writing in jyutping
+=== ROLE: RAG Assistant (rag_galatians) ===
+You are a helpful nutrition and health assistant with access to a knowledge base of nutrition research articles.
 
-Please help them explore this topic.
+When answering questions:
+1. Base your answers on the provided context from retrieved articles
+2. Cite the source titles/URLs when referencing specific information
+3. If the context doesn't contain relevant information, say so and offer general guidance
+4. Be accurate and don't make claims not supported by the provided sources
+5. If multiple sources have different perspectives, acknowledge this
+
+You will receive context in the format:
+[RAG Context]
+... retrieved articles ...
+[End RAG Context]
+
+Use this context to provide informed, evidence-based answers about nutrition and health topics.
+
 === END ROLE ===
 
+=== CONTEXT FROM 1 FILE(S) ===
 
-=== CLAUDE CODE: Please use the above context and role to assist the user ===
+--- FILE: rag_context.txt (5,658 chars) ---
+1. 5. Paul strongly condemns false teachers – He wishes :emely important pure
+
+teaching is. We must make sure that we accurately divide
+
+the Word of Truth so we don’t even accidentally become
+
+false teachers.
+
+Application: Where have you encountered false teaching
+
+recently? When you encounter it, what should you do about
+
+it?
+
+it?
+
+Galatians 5 Inductive Bible Study Notes - Teaching Guide With Questions
+
+III. Do not abuse your freedom (13-15)
+
+Discussion Questions
+
+If an unbeliever asks you “what does it mean that you
+
+have freedom after salvation” how would you answer?
+
+How might some professing believers abuse this
+
+freedom?
+
+How does Paul teach us we should use our freedom?
+
+What are some examples of Biblical commands that
+
+relate to love?
+
+Cross-References
+
+2 Corinthians 3:17 – Now the Lord is the Spirit, and where
+
+the Spirit of the Lord is, there is freedom.
+
+1 Peter 2:16 – Live as people who are free, not using your
+
+freedom as a cover-up for evil, but living as servants of God.
+
+John 8:32 – And you will know the truth, and the truth will
+
+set you free.
+
+Teaching Points
+2. 1. Pleasing God, not man – Paul notes his motivation : of a desire to build up his own
+
+Book of Galatians Bible Study - Galatians 1:1-12
+
+reputation or power for his own sake. If he was in it for
+
+himself, he says that he would not be a servant of Christ.
+
+After all, his work as a missionary did not pay very well. He
+
+suffered great pain and trials because of his service for
+
+God. He was not enriched materially. He likely did not even
+
+get married because of his call to spread the gospel. Finally
+
+he died as a martyr.
+
+He didn’t do these things for himself and he didn’t do them
+
+in order to get a better reputation. He did what he did to
+
+please God. That is a powerful testimony and the best
+
+testimony one can have of his life.
+
+Application: Can you say the same thing? Can you say
+
+that you are trying to please God or please people? Think
+
+for a moment about something you have done before out of
+
+a motive to please others instead of God. Confess to God
+
+and ask Him to help you have pure motivations.
+3. 5. After beginning by the Spirit, are you now trying :rks. The gospel
+
+message that Paul preached to them was very clear.
+
+Believe in the Lord Jesus Christ and you will be saved.
+
+Nothing more. Nothing less. The “formula” is not believe in
+
+Christ to get saved and then keep doing good works on your
+
+own to stay saved.
+
+Book of Galatians Bible Study - Galatians 3:1-9
+
+We can’t get in by our works. And we can’t stay in by our
+
+works.
+
+Application: How is this principle helpful for our life today?
+
+What application can we make from this? The key lesson is
+
+that we have to be humble and continually depend on Christ
+
+rather than ourselves.
+4. 4. You are all children of God through faith…you are :
+	- study from Amazon.
+
+S T U D Y   G A L A T I A N S   4 : 1 - 1 1
+
+We want to help you study the
+
+Bible, obey the Bible, and teach
+
+the Bible to others. We have
+
+therefore created a library of
+
+almost one thousand (and growing)
+
+inductive Bible studies, which are
+
+available for free. This takes a lot
+
+of time and hard work.
+
+Book of Galatians Bible Study - Galatians 3:10-29
+
+Help us continue to create Bible
+
+study resources by supporting
+
+Study and Obey for as little as $1.
+
+SUPPORT
+
+Sharing is caring!
+
+Share
+
+Tweet
+
+Pin
+
+Leave A Comment
+
+Comment...
+
+Name (required)
+
+Email (required)
+
+Website
+
+Save my name, email, and website in this browser for the next time I comment.
+
+P O S T   C O M M E N T
+
+© Copyright 2012 - 2022   |   Study and Obey All Rights Reserved   |  Privacy Policy | Contact | Support |Statement of Faith |
+
+Report An Ad |
+
+
+## Galatians 4:1-11
+----------------------------------------
+Galatians 4:1-11 Inductive Bible Study For Small Groups With Questions
+
+Home >> Bible Studies >> Galatians >> Galatians 4:1-11
+
+Galatians | 1:1-12 | 1:13-24 | 2:1-10 | 2:11-21 | 3:1-9 | 3:10-29 | 4:1-11 | 4:12-20 | 4
+
+:21-31 | 5:1-15 | 5:16-26 | 6 | PDF |
+
+These small group studies of Galatians contain outlines, cross-references, Bible
+
+study discussion questions, and applications.  Visit our library of inductive Bible
+
+studies for more in depth inductive studies on this and other books of the Bible you
+
+can use in your small group.
+
+Galatians 4:1-11 Inductive Bible
+
+
+
+Questions and
+5. 5. We did not yield in submission – No compromise! Fo: just let Titus
+
+be circumcised. After all, it is not sinful to be circumcised.
+
+The problem is that if he gave in, the false teachers would
+
+take it as proof that circumcision was always necessary.
+
+They would say even Paul required his disciples to be
+
+circumcised. Then the true gospel would be in danger of
+
+being forever tainted by a works based foundation.
+
+Application: There are many areas we can and should
+
+compromise in. We should compromise when our personal
+
+preferences or convenience is at stake. For example, I
+
+shouldn’t always demand that my family eat what I like or go
+
+where I like. But on Biblical issues, where the Bible speaks
+
+clearly, we must not compromise. How do we balance
+
+Christian unity with no compromising on truth?
+
+Note that Paul refused to compromise on a gospel essential
+
+issue. The entire gospel is at stake. We should not
+
+compromise on our Biblical convictions, but neither should
+
+we promote disunity or gravitate to conflict.
+
+This a difficult balance to maintain. Many believers go off on
+
+one side or the other. Some enjoy arguing. They will latch
+
+on to any disagreement with other believers, even on small
+
+issues, and argue about it. Their attitude is often prideful
+
+and they will look down on others if they don’t agree with
+
+them.
+
+=== END OF CONTEXT ===
+
+Total: 1 files, 5,658 characters
+
+=== USER REQUEST ===
+what does study say about how to stay pure
+=== END REQUEST ===

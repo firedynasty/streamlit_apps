@@ -8,10 +8,12 @@ Prompt: "with anthropic_chat_cli.py, and socratic_coaching.md walk me through"
 Usage:
     python anthropic_chat_cli.py                    # Interactive mode
     python anthropic_chat_cli.py -f file1.txt       # Load context files
-    python anthropic_chat_cli.py -c convo.txt       # Load conversation
     python anthropic_chat_cli.py --model sonnet     # Select model
     python anthropic_chat_cli.py --socratic         # Enable Socratic coaching
     python anthropic_chat_cli.py -s -t "Python"     # Socratic mode with topic
+    python anthropic_chat_cli.py --native -c "summarize"  # Clipboard + prompt for Claude Code
+    python anthropic_chat_cli.py --rag rag_nutrition # Enable RAG mode with specified folder
+    python anthropic_chat_cli.py --rag rag_novel    # Use a different RAG folder
 
 Requirements:
     - ANTHROPIC_API_KEY environment variable (or enter interactively)
@@ -22,6 +24,7 @@ Features:
     - Save/load conversation history
     - Streaming responses
     - Socratic coaching mode (ask, don't tell)
+    - RAG mode with customizable knowledge base folder
 """
 
 import argparse
@@ -36,6 +39,39 @@ try:
 except ImportError:
     print("Error: anthropic package not found. Install with: pip install anthropic")
     sys.exit(1)
+
+# RAG system imports (optional - only needed for --rag mode)
+# These will be loaded dynamically based on the --rag folder argument
+RAG_AVAILABLE = False
+RAG_PATH = None
+get_knowledge_base = None
+get_context = None
+get_rag_config = None
+
+
+def load_rag_module(rag_folder: str) -> bool:
+    """Dynamically load RAG module from specified folder."""
+    global RAG_AVAILABLE, RAG_PATH, get_knowledge_base, get_context, get_rag_config
+
+    RAG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), rag_folder)
+    if not os.path.exists(RAG_PATH):
+        return False
+
+    # Add to path if not already there
+    if RAG_PATH not in sys.path:
+        sys.path.insert(0, RAG_PATH)
+
+    try:
+        # Import or reimport the modules
+        from src.retrieval import get_knowledge_base as gkb, get_context as gc
+        from src.constants import get_rag_config as grc
+        get_knowledge_base = gkb
+        get_context = gc
+        get_rag_config = grc
+        RAG_AVAILABLE = True
+        return True
+    except ImportError as e:
+        return False
 
 # ============================================================================
 # CONSTANTS
@@ -131,6 +167,24 @@ When they ask questions or make statements, guide them to discover insights abou
 {topic} through thoughtful questions rather than direct explanations.
 """
 
+# RAG system prompt for nutrition knowledge base
+RAG_SYSTEM_PROMPT = """You are a helpful nutrition and health assistant with access to a knowledge base of nutrition research articles.
+
+When answering questions:
+1. Base your answers on the provided context from retrieved articles
+2. Cite the source titles/URLs when referencing specific information
+3. If the context doesn't contain relevant information, say so and offer general guidance
+4. Be accurate and don't make claims not supported by the provided sources
+5. If multiple sources have different perspectives, acknowledge this
+
+You will receive context in the format:
+[RAG Context]
+... retrieved articles ...
+[End RAG Context]
+
+Use this context to provide informed, evidence-based answers about nutrition and health topics.
+"""
+
 
 # ============================================================================
 # FILE UTILITIES
@@ -140,6 +194,37 @@ def natural_sort_key(s: str) -> List:
     """Sort strings with embedded numbers naturally."""
     return [int(text) if text.isdigit() else text.lower()
             for text in re.split(r'(\d+)', s)]
+
+
+def get_clipboard_content() -> str:
+    """Get content from system clipboard."""
+    import subprocess
+    import platform
+
+    system = platform.system()
+    try:
+        if system == 'Darwin':  # macOS
+            result = subprocess.run(['pbpaste'], capture_output=True, text=True)
+            return result.stdout
+        elif system == 'Linux':
+            # Try xclip first, then xsel
+            try:
+                result = subprocess.run(['xclip', '-selection', 'clipboard', '-o'],
+                                       capture_output=True, text=True)
+                return result.stdout
+            except FileNotFoundError:
+                result = subprocess.run(['xsel', '--clipboard', '--output'],
+                                       capture_output=True, text=True)
+                return result.stdout
+        elif system == 'Windows':
+            result = subprocess.run(['powershell', '-command', 'Get-Clipboard'],
+                                   capture_output=True, text=True)
+            return result.stdout
+    except Exception as e:
+        print(f"Error reading clipboard: {e}")
+        return ""
+
+    return ""
 
 
 def scan_folder(folder_path: str) -> List[str]:
@@ -222,19 +307,59 @@ def save_conversation(file_path: str, messages: List[Dict]):
 
 
 # ============================================================================
+# RAG UTILITIES
+# ============================================================================
+
+def get_rag_context(query: str) -> Optional[str]:
+    """Retrieve context from the nutrition RAG knowledge base."""
+    if not RAG_AVAILABLE:
+        return None
+
+    try:
+        config = get_rag_config()
+        k_base = get_knowledge_base()
+
+        context = get_context(
+            k_base=k_base,
+            query_text=query,
+            n_retrieve=config["retriever"]["n_retrieve"],
+            n_titles=config["retriever"]["n_titles"],
+            enrich_first=config["retriever"]["enrich_first"],
+            reranker=config["retriever"]["reranker"]
+        )
+        return context
+    except Exception as e:
+        print(f"{Colors.RED}RAG retrieval error: {e}{Colors.RESET}")
+        return None
+
+
+def format_message_with_rag(user_message: str, rag_context: str) -> str:
+    """Format a user message with RAG context prepended."""
+    return f"""[RAG Context]
+{rag_context}
+[End RAG Context]
+
+User Question: {user_message}"""
+
+
+# ============================================================================
 # SYSTEM PROMPT BUILDER
 # ============================================================================
 
 def build_system_prompt(loaded_files: Dict[str, str],
                        socratic_mode: bool = False,
                        socratic_topic: Optional[str] = None,
-                       role_prompt: Optional[str] = None) -> Optional[str]:
-    """Build system prompt with file context and optional Socratic coaching."""
+                       role_prompt: Optional[str] = None,
+                       rag_mode: bool = False) -> Optional[str]:
+    """Build system prompt with file context and optional Socratic coaching or RAG mode."""
     parts = []
 
     # Add custom role prompt if provided
     if role_prompt:
         parts.append(role_prompt)
+    # Add RAG system prompt if enabled
+    elif rag_mode:
+        parts.append(RAG_SYSTEM_PROMPT)
     # Add Socratic coaching prompt if enabled (and no custom role)
     elif socratic_mode:
         parts.append(SOCRATIC_SYSTEM_PROMPT)
@@ -321,6 +446,10 @@ def print_help():
   {Colors.MAGENTA}/socratic{Colors.RESET}      - Toggle Socratic coaching mode
   {Colors.MAGENTA}/topic <name>{Colors.RESET}  - Set coaching topic (e.g., /topic Python)
   {Colors.MAGENTA}/status{Colors.RESET}        - Show current mode and settings
+
+{Colors.BOLD}RAG (Knowledge Base):{Colors.RESET}
+  {Colors.GREEN}/rag <folder>{Colors.RESET}  - Enable RAG mode with folder (e.g., /rag rag_nutrition)
+  {Colors.GREEN}/rag{Colors.RESET}           - Toggle RAG mode off (when already on)
 """)
 
 
@@ -409,13 +538,17 @@ def stream_response(client: anthropic.Anthropic, model: str,
 
 def display_status(socratic_mode: bool, socratic_topic: Optional[str],
                    model_name: str, loaded_files: Dict[str, str],
-                   role_name: Optional[str] = None):
+                   role_name: Optional[str] = None,
+                   rag_mode: bool = False,
+                   rag_folder: Optional[str] = None):
     """Display current settings and mode."""
     print(f"\n{Colors.BOLD}Current Settings:{Colors.RESET}")
     print(f"  Model: {Colors.CYAN}{model_name}{Colors.RESET}")
 
     if role_name:
         print(f"  Role: {Colors.MAGENTA}{role_name}{Colors.RESET}")
+    elif rag_mode and rag_folder:
+        print(f"  RAG Mode: {Colors.GREEN}ON{Colors.RESET} ({rag_folder} knowledge base)")
     elif socratic_mode:
         print(f"  Socratic Mode: {Colors.MAGENTA}ON{Colors.RESET}")
         if socratic_topic:
@@ -443,10 +576,6 @@ def main():
         help="Text files to load as context"
     )
     parser.add_argument(
-        "-c", "--conversation",
-        help="Load a conversation file to continue"
-    )
-    parser.add_argument(
         "-d", "--directory",
         help="Directory to scan for text files"
     )
@@ -470,6 +599,11 @@ def main():
         help="Role prompt: 'socratic' (built-in), or path to .md/.txt file with custom role"
     )
     parser.add_argument(
+        "-R", "--rag",
+        metavar="FOLDER",
+        help="Enable RAG mode with specified folder (e.g., --rag rag_nutrition or --rag rag_novel)"
+    )
+    parser.add_argument(
         "--export",
         action="store_true",
         help="Export loaded files as context and exit (for use with Claude Code)"
@@ -482,6 +616,16 @@ def main():
     parser.add_argument(
         "-o", "--output",
         help="Output file path for --native or --export mode (default: prints to stdout)"
+    )
+    parser.add_argument(
+        "-c", "--clipboard",
+        action="store_true",
+        help="Read content from clipboard (use with --native)"
+    )
+    parser.add_argument(
+        "prompt",
+        nargs="?",
+        help="Instruction/prompt for Claude (e.g., 'summarize')"
     )
     args = parser.parse_args()
 
@@ -542,6 +686,37 @@ def main():
         loaded_files: Dict[str, str] = {}
         role_content: Optional[str] = None
         role_name: Optional[str] = None
+        user_prompt: Optional[str] = args.prompt
+
+        # Handle RAG mode - retrieve context from specified knowledge base
+        if args.rag:
+            if not load_rag_module(args.rag):
+                print(f"RAG mode requested but '{args.rag}' folder is not available or missing dependencies.")
+                sys.exit(1)
+            if not user_prompt:
+                print("RAG mode requires a prompt. Example:")
+                print(f'  python anthropic_chat_cli.py --rag {args.rag} --native "your question here"')
+                sys.exit(1)
+
+            print(f"Retrieving from {args.rag} knowledge base for: {user_prompt}")
+            rag_context = get_rag_context(user_prompt)
+            if rag_context:
+                role_content = RAG_SYSTEM_PROMPT
+                role_name = f"RAG Assistant ({args.rag})"
+                loaded_files["rag_context.txt"] = rag_context
+                print(f"Retrieved {len(rag_context):,} chars of context")
+            else:
+                print("No results found in knowledge base.")
+                sys.exit(1)
+
+        # Handle clipboard
+        if args.clipboard:
+            clipboard_content = get_clipboard_content()
+            if clipboard_content.strip():
+                loaded_files["clipboard.txt"] = clipboard_content
+                print(f"Loaded clipboard content ({len(clipboard_content):,} chars)")
+            else:
+                print("Warning: Clipboard is empty")
 
         # Handle role
         if args.role:
@@ -630,7 +805,12 @@ def main():
             output_lines.append("=== END OF CONTEXT ===")
             output_lines.append(f"\nTotal: {len(included_files)} files, {sum(len(c) for c in included_files.values()):,} characters")
 
-        output_lines.append("\n=== CLAUDE CODE: Please use the above context and role to assist the user ===")
+        if user_prompt:
+            output_lines.append(f"\n=== USER REQUEST ===")
+            output_lines.append(user_prompt)
+            output_lines.append("=== END REQUEST ===")
+        else:
+            output_lines.append("\n=== CLAUDE CODE: Please use the above context and role to assist the user ===")
 
         full_output = "\n".join(output_lines)
 
@@ -640,8 +820,11 @@ def main():
             f.write(full_output)
 
         # Print the context directly so Claude Code sees it and can respond
+        # NOTE FOR CLAUDE CODE: --native mode outputs context for YOU to process.
+        # No API call is made. Please respond to the USER REQUEST below.
         print(full_output)
         print(f"\n[Context also saved to: {output_file}]")
+        print(f"\n[--native mode: Claude Code should now respond to the request above]")
         sys.exit(0)
 
     print_header()
@@ -676,6 +859,16 @@ def main():
     socratic_topic: Optional[str] = args.topic
     role_prompt: Optional[str] = None
     role_name: Optional[str] = None
+    rag_mode: bool = bool(args.rag)
+    rag_folder: Optional[str] = args.rag
+
+    # Handle --rag argument
+    if rag_folder:
+        if not load_rag_module(rag_folder):
+            print(f"{Colors.RED}RAG mode requested but '{rag_folder}' is not available.{Colors.RESET}")
+            print(f"{Colors.YELLOW}Make sure {rag_folder}/ directory exists with required dependencies.{Colors.RESET}")
+            sys.exit(1)
+        print(f"{Colors.GREEN}RAG mode: ON ({rag_folder} knowledge base){Colors.RESET}")
 
     # Handle --role argument
     if args.role:
@@ -697,15 +890,6 @@ def main():
         print(f"{Colors.MAGENTA}Socratic coaching mode: ON{Colors.RESET}")
         if socratic_topic:
             print(f"{Colors.MAGENTA}Topic: {socratic_topic}{Colors.RESET}")
-
-    # Load conversation file if provided
-    if args.conversation:
-        if os.path.exists(args.conversation):
-            text = extract_text(args.conversation)
-            messages = parse_conversation(text)
-            print(f"{Colors.GREEN}Loaded conversation from {args.conversation} ({len(messages)} messages){Colors.RESET}")
-        else:
-            print(f"{Colors.YELLOW}Conversation file not found: {args.conversation}{Colors.RESET}")
 
     # Load context files if provided
     if args.files:
@@ -737,9 +921,11 @@ def main():
     # Main chat loop
     while True:
         try:
-            # Show different prompt based on role/Socratic mode
+            # Show different prompt based on role/Socratic/RAG mode
             if role_prompt:
                 prompt_prefix = f"{Colors.MAGENTA}[{role_name}]{Colors.RESET} {Colors.BLUE}{Colors.BOLD}You:{Colors.RESET} "
+            elif rag_mode:
+                prompt_prefix = f"{Colors.GREEN}[RAG]{Colors.RESET} {Colors.BLUE}{Colors.BOLD}You:{Colors.RESET} "
             elif socratic_mode:
                 prompt_prefix = f"{Colors.MAGENTA}[Socratic]{Colors.RESET} {Colors.BLUE}{Colors.BOLD}You:{Colors.RESET} "
             else:
@@ -824,18 +1010,46 @@ def main():
                         print(f"{Colors.YELLOW}Usage: /topic <name> (e.g., /topic Python){Colors.RESET}")
 
             elif cmd == '/status':
-                display_status(socratic_mode, socratic_topic, model_name, loaded_files, role_name)
+                display_status(socratic_mode, socratic_topic, model_name, loaded_files, role_name, rag_mode, rag_folder)
+
+            elif cmd == '/rag':
+                if cmd_arg:
+                    # Load a specific RAG folder
+                    if load_rag_module(cmd_arg):
+                        rag_mode = True
+                        rag_folder = cmd_arg
+                        print(f"{Colors.GREEN}RAG mode: ON ({rag_folder}){Colors.RESET}")
+                        print(f"{Colors.DIM}Your questions will be augmented with {rag_folder} knowledge base.{Colors.RESET}")
+                    else:
+                        print(f"{Colors.RED}Could not load RAG from '{cmd_arg}'. Make sure the folder exists.{Colors.RESET}")
+                elif rag_mode:
+                    # Toggle off if already on
+                    rag_mode = False
+                    print(f"{Colors.DIM}RAG mode: OFF{Colors.RESET}")
+                else:
+                    print(f"{Colors.YELLOW}Usage: /rag <folder> (e.g., /rag rag_nutrition or /rag rag_novel){Colors.RESET}")
 
             else:
                 print(f"{Colors.YELLOW}Unknown command: {cmd}. Type /help for commands.{Colors.RESET}")
 
             continue
 
-        # Add user message
-        messages.append({"role": "user", "content": user_input})
+        # If RAG mode is enabled, retrieve context and format the message
+        message_content = user_input
+        if rag_mode and rag_folder:
+            print(f"{Colors.DIM}Retrieving from {rag_folder} knowledge base...{Colors.RESET}", end="", flush=True)
+            rag_context = get_rag_context(user_input)
+            if rag_context:
+                message_content = format_message_with_rag(user_input, rag_context)
+                print(f" {Colors.GREEN}done{Colors.RESET}")
+            else:
+                print(f" {Colors.YELLOW}no results{Colors.RESET}")
 
-        # Build system prompt with file context, Socratic mode, and custom role
-        system_prompt = build_system_prompt(loaded_files, socratic_mode, socratic_topic, role_prompt)
+        # Add user message
+        messages.append({"role": "user", "content": message_content})
+
+        # Build system prompt with file context, Socratic mode, custom role, and RAG mode
+        system_prompt = build_system_prompt(loaded_files, socratic_mode, socratic_topic, role_prompt, rag_mode)
 
         # Stream response
         if model_id == "claude-opus-4-5-20251101":
