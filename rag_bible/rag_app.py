@@ -7,11 +7,31 @@ import streamlit as st
 import os
 import sys
 
-# Available knowledge bases
-RAG_FOLDERS = {
-    "Psalms": "rag_psalms",
-    "Proverbs": "rag_proverbs",
+# Knowledge bases configuration
+# Format: "Display Name": {"type": "rag"|"txt", "path": "folder_or_file", "source": "source_name"}
+
+KNOWLEDGE_BASES = {
+    # RAG folders (semantic search)
+    "Psalms": {"type": "rag", "path": "rag_psalms", "source": "Matthew Henry's Commentary"},
+    "Isaiah": {"type": "rag", "path": "rag_isaiah", "source": "Matthew Henry's Commentary"},
+    # NT epistles - studyandobey
+    "Romans": {"type": "rag", "path": "rag_romans", "source": "studyandobey"},
+    "2 Corinthians": {"type": "rag", "path": "rag_2corinthians", "source": "studyandobey"},
+    "Galatians": {"type": "rag", "path": "rag_galatians", "source": "studyandobey"},
+    # Plain text files (return entire file)
+    "Proverbs": {"type": "txt", "path": "proverbs.txt", "source": "Matthew Henry's Commentary"},
+    "Ecclesiastes": {"type": "txt", "path": "ecclesiastes.txt", "source": "Matthew Henry's Commentary"},
+    "Song of Solomon": {"type": "txt", "path": "solomon.txt", "source": "Matthew Henry's Commentary"},
+    "Genesis": {"type": "txt", "path": "genesis.txt", "source": "Matthew Henry's Commentary"},
+    "Exodus": {"type": "txt", "path": "exodus.txt", "source": "Matthew Henry's Commentary"},
+    "Leviticus": {"type": "txt", "path": "leviticus.txt", "source": "Matthew Henry's Commentary"},
+    "Numbers": {"type": "txt", "path": "numbers.txt", "source": "Matthew Henry's Commentary"},
+    "Joshua": {"type": "txt", "path": "joshua.txt", "source": "Matthew Henry's Commentary"},
+    "Judges": {"type": "txt", "path": "judges.txt", "source": "Matthew Henry's Commentary"},
 }
+
+# For backwards compatibility
+RAG_FOLDERS = {name: cfg["path"] for name, cfg in KNOWLEDGE_BASES.items() if cfg["type"] == "rag"}
 
 # Get the directory where this script is located
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -39,13 +59,21 @@ def load_rag_module(rag_folder: str):
     return get_knowledge_base, get_context, get_rag_config
 
 
+def retrieve_from_txt(file_path: str) -> str:
+    """Read entire text file."""
+    full_path = os.path.join(APP_DIR, file_path)
+    with open(full_path, 'r', encoding='utf-8') as f:
+        return f.read()
+
+
 def retrieve_from_rag(rag_folder: str, query: str) -> str:
-    """Retrieve context from specified RAG folder."""
+    """Retrieve context from specified RAG folder using semantic search."""
     # Update sys.path for the selected RAG folder
     rag_path = os.path.join(APP_DIR, rag_folder)
 
     # Remove other RAG paths and add current one
-    sys.path = [p for p in sys.path if not p.endswith(tuple(RAG_FOLDERS.values()))]
+    rag_paths = [cfg["path"] for cfg in KNOWLEDGE_BASES.values() if cfg["type"] == "rag"]
+    sys.path = [p for p in sys.path if not p.endswith(tuple(rag_paths))]
     if rag_path not in sys.path:
         sys.path.insert(0, rag_path)
 
@@ -73,6 +101,15 @@ def retrieve_from_rag(rag_folder: str, query: str) -> str:
     return context
 
 
+def retrieve_context(kb_name: str, query: str) -> str:
+    """Retrieve context based on knowledge base type."""
+    config = KNOWLEDGE_BASES[kb_name]
+    if config["type"] == "txt":
+        return retrieve_from_txt(config["path"])
+    else:
+        return retrieve_from_rag(config["path"], query)
+
+
 # Page config
 st.set_page_config(
     page_title="Bible RAG Retriever",
@@ -88,9 +125,14 @@ with st.sidebar:
     st.header("Settings")
     selected_kb = st.selectbox(
         "Knowledge Base",
-        options=list(RAG_FOLDERS.keys()),
+        options=list(KNOWLEDGE_BASES.keys()),
         index=0
     )
+    # Show source info
+    source = KNOWLEDGE_BASES[selected_kb]["source"]
+    kb_type = KNOWLEDGE_BASES[selected_kb]["type"]
+    st.caption(f"Source: {source}")
+    st.caption(f"Type: {'Full text' if kb_type == 'txt' else 'Semantic search'}")
 
 # Main area
 query = st.text_area(
@@ -105,17 +147,18 @@ with col1:
 
 # Retrieve and display
 if retrieve_btn and query:
-    rag_folder = RAG_FOLDERS[selected_kb]
+    kb_config = KNOWLEDGE_BASES[selected_kb]
+    source_name = kb_config["source"]
 
     with st.spinner(f"Retrieving from {selected_kb}..."):
         try:
-            context = retrieve_from_rag(rag_folder, query)
+            context = retrieve_context(selected_kb, query)
 
             st.success(f"Retrieved from {selected_kb}")
 
             # Build full output with instructions and question appended
-            full_output = f"""[CONTEXT FROM MATTHEW HENRY'S COMMENTARY]
-Below are excerpts from Matthew Henry's Commentary on thematically similar passages.
+            full_output = f"""[CONTEXT FROM {source_name.upper()}]
+Below are excerpts from {source_name} on thematically similar passages.
 
 Please:
 1. Analyze the verse/passage I provide
