@@ -11,23 +11,22 @@ import sys
 # Format: "Display Name": {"type": "rag"|"txt", "path": "folder_or_file", "source": "source_name"}
 
 KNOWLEDGE_BASES = {
-    # RAG folders (semantic search)
-    "Psalms": {"type": "rag", "path": "rag_psalms", "source": "Matthew Henry's Commentary"},
-    "Isaiah": {"type": "rag", "path": "rag_isaiah", "source": "Matthew Henry's Commentary"},
-    # NT epistles - studyandobey
-    "Romans": {"type": "rag", "path": "rag_romans", "source": "studyandobey"},
-    "2 Corinthians": {"type": "rag", "path": "rag_2corinthians", "source": "studyandobey"},
-    "Galatians": {"type": "rag", "path": "rag_galatians", "source": "studyandobey"},
-    # Plain text files (return entire file)
-    "Proverbs": {"type": "txt", "path": "proverbs.txt", "source": "Matthew Henry's Commentary"},
-    "Ecclesiastes": {"type": "txt", "path": "ecclesiastes.txt", "source": "Matthew Henry's Commentary"},
-    "Song of Solomon": {"type": "txt", "path": "solomon.txt", "source": "Matthew Henry's Commentary"},
+    # Old Testament - in biblical order
     "Genesis": {"type": "txt", "path": "genesis.txt", "source": "Matthew Henry's Commentary"},
     "Exodus": {"type": "txt", "path": "exodus.txt", "source": "Matthew Henry's Commentary"},
     "Leviticus": {"type": "txt", "path": "leviticus.txt", "source": "Matthew Henry's Commentary"},
     "Numbers": {"type": "txt", "path": "numbers.txt", "source": "Matthew Henry's Commentary"},
     "Joshua": {"type": "txt", "path": "joshua.txt", "source": "Matthew Henry's Commentary"},
     "Judges": {"type": "txt", "path": "judges.txt", "source": "Matthew Henry's Commentary"},
+    "Psalms": {"type": "rag", "path": "rag_psalms", "source": "Matthew Henry's Commentary"},
+    "Proverbs": {"type": "txt", "path": "proverbs.txt", "source": "Matthew Henry's Commentary"},
+    "Ecclesiastes": {"type": "txt", "path": "ecclesiastes.txt", "source": "Matthew Henry's Commentary"},
+    "Song of Solomon": {"type": "txt", "path": "solomon.txt", "source": "Matthew Henry's Commentary"},
+    "Isaiah": {"type": "rag", "path": "rag_isaiah", "source": "Matthew Henry's Commentary"},
+    # New Testament - in biblical order
+    "Romans": {"type": "rag", "path": "rag_romans", "source": "studyandobey"},
+    "2 Corinthians": {"type": "rag", "path": "rag_2corinthians", "source": "studyandobey"},
+    "Galatians": {"type": "rag", "path": "rag_galatians", "source": "studyandobey"},
 }
 
 # For backwards compatibility
