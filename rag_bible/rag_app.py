@@ -113,8 +113,11 @@ if retrieve_btn and query:
 
             st.success(f"Retrieved from {selected_kb}")
 
-            # Build full output with question appended
-            full_output = f"""{context}
+            # Build full output with instructions and question appended
+            full_output = f"""[CONTEXT FROM MATTHEW HENRY'S COMMENTARY]
+Answer my question using ONLY the commentary excerpts below. Do not use your general knowledge. If the specific passage or topic I'm asking about is not in these excerpts, say "This topic is not covered in the provided commentary excerpts."
+
+{context}
 
 ---
 My question: {query}"""
