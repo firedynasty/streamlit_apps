@@ -16,6 +16,7 @@ KNOWLEDGE_BASES = {
     "Exodus": {"type": "txt", "path": "exodus.txt", "source": "Matthew Henry's Commentary"},
     "Leviticus": {"type": "txt", "path": "leviticus.txt", "source": "Matthew Henry's Commentary"},
     "Numbers": {"type": "txt", "path": "numbers.txt", "source": "Matthew Henry's Commentary"},
+    "Deuteronomy": {"type": "txt", "path": "deuteronomy.txt", "source": "Matthew Henry's Commentary"},
     "Joshua": {"type": "txt", "path": "joshua.txt", "source": "Matthew Henry's Commentary"},
     "Judges": {"type": "txt", "path": "judges.txt", "source": "Matthew Henry's Commentary"},
     "Psalms": {"type": "rag", "path": "rag_psalms", "source": "Matthew Henry's Commentary"},
