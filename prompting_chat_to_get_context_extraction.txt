@@ -1,0 +1,32 @@
+  Here's a prompt optimized for RAG/context retention:
+
+  Export this entire conversation into a structured knowledge document. Format it as:
+
+  ## Key Facts & Decisions
+  - [Bullet each concrete fact, conclusion, or decision made]
+
+  ## Q&A Pairs
+  For each topic discussed:
+  Q: [The question or topic]
+  A: [The answer/resolution, with specifics]
+
+  ## Code/Commands (if any)
+  [Any code snippets, commands, or technical details verbatim]
+
+  ## Unresolved / Open Items
+  - [Anything left incomplete or needing follow-up]
+
+  ## Context Tags
+  [List key terms, names, concepts for searchability]
+
+  Be exhaustive. Include all specifics - names, numbers, file paths, versions, exact wording of important points. Do not summarize away details.
+
+  Why this works for RAG:
+  - Q&A pairs - matches how you'll query it later
+  - Key facts - flat structure, easy to retrieve
+  - Verbatim code/commands - no loss of technical details
+  - Context tags - helps with keyword matching
+  - "Do not summarize away details" - prevents Claude from being too concise
+
+  Alternative shorter version:
+  Convert this conversation to a knowledge base format. List every fact, decision, code snippet, and conclusion as separate bullet points. Include all specifics. Format for easy searching and retrieval.

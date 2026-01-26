@@ -62,3 +62,42 @@ API requirment
 
 ⏺ Got it! The script is a RAG context preparation tool that creates the context file for use here in Claude Code. Let me read the saved context and answer your question:
 
+
+so,   # Single file
+  python anthropic_chat_cli.py -f proverbs_mhc_summarized.txt
+
+  # Multiple files
+  python anthropic_chat_cli.py -f file1.txt file2.txt file3.txt
+
+  # With native mode (for Claude Code)
+  python anthropic_chat_cli.py --native -f proverbs_mhc_summarized.txt "your question here"
+
+  # Interactive mode with file context
+  python anthropic_chat_cli.py -f proverbs_mhc_summarized.txt --model haiku
+
+  The -f flag loads text files as context that gets included in the system prompt. So you don't need --txt - just use -f or --files.
+
+
+because using python anthropic_chat_cli.py --native --rag rag... "question here"
+
+please run python anthropic_chat_cli.py -f proverbs_mhc_summarized.txt -c --native "what do you think matthew henry has to say about this transcript?"
+
+
+⏺ Yes, it has -c / --clipboard:
+
+  parser.add_argument(
+      "-c", "--clipboard",
+      action="store_true",
+      help="Read content from clipboard (use with --native)"
+  )
+
+  It's designed to be used with --native mode. Example from the docstring at line 14:
+
+  python anthropic_chat_cli.py --native -c "summarize"  # Clipboard + prompt for Claude Code
+
+  When used, it reads clipboard content via get_clipboard_content() (lines 199-227) and adds it as clipboard.txt to the loaded files (lines 713-719).
+
+
+
+
+
