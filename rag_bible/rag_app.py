@@ -113,18 +113,21 @@ if retrieve_btn and query:
 
             st.success(f"Retrieved from {selected_kb}")
 
-            # Display context in copyable text area
-            st.subheader("Retrieved Context")
-            st.text_area(
-                "Context (select all and copy)",
-                value=context,
-                height=400,
-                label_visibility="collapsed"
-            )
+            # Build full output with question appended
+            full_output = f"""{context}
+
+---
+My question: {query}"""
+
+            # Display with copy button using st.code
+            st.subheader("Copy this to Claude")
+            st.code(full_output, language=None)
 
             # Also show formatted version
             with st.expander("Formatted View"):
                 st.markdown(context.replace("\n", "  \n"))
+                st.markdown("---")
+                st.markdown(f"**My question:** {query}")
 
         except Exception as e:
             st.error(f"Error retrieving context: {e}")
@@ -134,4 +137,4 @@ elif retrieve_btn and not query:
 
 # Footer
 st.markdown("---")
-st.caption("Copy the context above and paste into Claude with your question.")
+st.caption("Click the copy icon in the code block above, then paste into Claude.")
