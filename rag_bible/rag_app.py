@@ -94,8 +94,8 @@ with st.sidebar:
 
 # Main area
 query = st.text_area(
-    "Your Question",
-    placeholder="e.g., What does the Bible say about wisdom?",
+    "Paste verse or question",
+    placeholder="e.g., Paste a verse for analysis, or ask a thematic question like 'What does the commentary say about trusting God in difficult times?'",
     height=100
 )
 
@@ -115,12 +115,16 @@ if retrieve_btn and query:
 
             # Build full output with instructions and question appended
             full_output = f"""[CONTEXT FROM MATTHEW HENRY'S COMMENTARY]
-Answer my question using ONLY the commentary excerpts below. Do not use your general knowledge. If the specific passage or topic I'm asking about is not in these excerpts, say "This topic is not covered in the provided commentary excerpts."
+Below are excerpts from Matthew Henry's Commentary on thematically similar passages.
+
+Please:
+1. Analyze the verse/passage I provide
+2. Enrich your analysis using insights from the commentary excerpts below (they cover similar themes even if not the exact same chapter)
 
 {context}
 
 ---
-My question: {query}"""
+{query}"""
 
             # Display with copy button using st.code
             st.subheader("Copy this to Claude")
