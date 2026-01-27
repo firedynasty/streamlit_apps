@@ -28,6 +28,7 @@ KNOWLEDGE_BASES = {
     "Ecclesiastes": {"type": "txt", "path": "ecclesiastes.txt", "source": "Matthew Henry's Commentary"},
     "Song of Solomon": {"type": "txt", "path": "solomon.txt", "source": "Matthew Henry's Commentary"},
     "Isaiah": {"type": "rag", "path": "rag_isaiah", "source": "Matthew Henry's Commentary"},
+    "Jeremiah": {"type": "txt", "path": "jeremiah.txt", "source": "Matthew Henry's Commentary"},
     # New Testament - in biblical order
     "Romans": {"type": "rag", "path": "rag_romans", "source": "studyandobey"},
     "2 Corinthians": {"type": "rag", "path": "rag_2corinthians", "source": "studyandobey"},
