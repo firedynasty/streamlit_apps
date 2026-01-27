@@ -138,6 +138,7 @@ with st.sidebar:
     kb_type = KNOWLEDGE_BASES[selected_kb]["type"]
     st.caption(f"Source: {source}")
     st.caption(f"Type: {'Full text' if kb_type == 'txt' else 'Semantic search'}")
+    st.markdown("[Matthew Henry Commentary](https://www.christianity.com/bible/commentary/matthew-henry-complete/)")
 
 # Main area
 query = st.text_area(
