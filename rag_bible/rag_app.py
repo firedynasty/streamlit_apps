@@ -139,6 +139,7 @@ with st.sidebar:
     st.caption(f"Source: {source}")
     st.caption(f"Type: {'Full text' if kb_type == 'txt' else 'Semantic search'}")
     st.markdown("[Matthew Henry Commentary](https://www.christianity.com/bible/commentary/matthew-henry-complete/)")
+    st.markdown("[Matthew Henry Search](https://matthew-henry.netlify.app/)")
 
 # Main area
 query = st.text_area(
