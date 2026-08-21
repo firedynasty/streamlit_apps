@@ -87,7 +87,7 @@ ul.cefr-tree > li {
   padding-left: 18px;
   margin: 10px 0;
   line-height: 1.65;
-  font-size: 0.97rem;
+  font-size: 1em;   /* scales with the container's font-size */
 }
 ul.cefr-tree > li::before {
   content: "";
@@ -115,7 +115,7 @@ ul.cefr-tree ul li {
   margin: 2px 0;
   color: #888;
   font-style: italic;
-  font-size: 0.9rem;
+  font-size: 0.92em;
   line-height: 1.55;
 }
 ul.cefr-tree ul li::before {
@@ -137,13 +137,14 @@ BOX_STYLE = (
 
 # ── Rendering ─────────────────────────────────────────────────────────────────
 
-def render_tree(segments: list) -> str:
+def render_tree(segments: list, font_px: int = 15) -> str:
     """
     Bullet tree:
       • simplified text          (blue dot)
           ↳ original text        (indented, gray italic)
       • unchanged text           (gray dot, no sub-bullet)
       • ~~dropped original~~     (red strikethrough, no sub-bullet)
+    font_px scales the whole tree (inner sizes are em-based).
     """
     items = []
     for seg in segments:
@@ -164,7 +165,14 @@ def render_tree(segments: list) -> str:
             items.append(f'<li class="unchanged">{html.escape(simplified)}</li>')
 
     inner = "\n".join(items)
-    return f'{TREE_CSS}<div style="{BOX_STYLE}"><ul class="cefr-tree">{inner}</ul></div>'
+    return (
+        f'{TREE_CSS}<div style="{BOX_STYLE}font-size:{font_px}px;">'
+        f'<ul class="cefr-tree">{inner}</ul></div>'
+    )
+
+
+def _bump_font(delta: int):
+    st.session_state.font_px = min(24, max(11, st.session_state.font_px + delta))
 
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
@@ -244,6 +252,8 @@ st.caption(
 )
 
 st.subheader("Original Text")
+st.session_state.setdefault("font_px", 15)
+
 original_input = st.text_area(
     label="original",
     label_visibility="collapsed",
@@ -259,16 +269,28 @@ with col_clear:
     st.button(
         "Clear",
         use_container_width=True,
-        on_click=lambda: st.session_state.update(original_text=""),
+        on_click=lambda: st.session_state.update(
+            original_text="", segments=None, summary="", note="", unreplaced=[]
+        ),
     )
 
 if engine == "OpenAI" and not api_key:
     st.info("Enter your OpenAI API key in the sidebar, or set OPENAI_API_KEY in your shell.")
 
-st.subheader(f"Tuned Result — {cefr_level}")
+col_result, col_minus, col_plus = st.columns([6, 1, 1])
+with col_result:
+    st.subheader(f"Tuned Result — {cefr_level}")
+with col_minus:
+    st.button("A−", use_container_width=True, help="Smaller text",
+              on_click=_bump_font, args=(-1,))
+with col_plus:
+    st.button("A+", use_container_width=True, help="Larger text",
+              on_click=_bump_font, args=(1,))
+
 result_area = st.empty()
 result_area.markdown(
-    f'<div style="{BOX_STYLE}color:#aaa;padding:16px 20px;">Your rewritten text will appear here.</div>',
+    f'<div style="{BOX_STYLE}color:#aaa;font-size:{st.session_state.font_px}px;">'
+    "Your rewritten text will appear here.</div>",
     unsafe_allow_html=True,
 )
 
@@ -284,21 +306,16 @@ elif tune_btn and engine == "Wordlist (no AI)":
             tuner = load_wordlist_tuner()
             segments, stats = tuner.tune(original_input.strip(), cefr_level)
 
-            result_area.markdown(render_tree(segments), unsafe_allow_html=True)
-
             simplified_count = sum(1 for s in segments if s.get("type") == "simplified")
-            if simplified_count:
-                st.success(
+            st.session_state.update(
+                segments=segments,
+                summary=(
                     f"{simplified_count} sentence{'s' if simplified_count != 1 else ''} rewritten."
-                )
-            else:
-                st.info("No changes were needed for this level.")
-
-            if stats["unreplaced"]:
-                st.warning(
-                    "No easy replacement found for: "
-                    + ", ".join(dict.fromkeys(stats["unreplaced"]))
-                )
+                    if simplified_count else ""
+                ),
+                note="" if simplified_count else "No changes were needed for this level.",
+                unreplaced=stats["unreplaced"],
+            )
         except Exception as e:
             st.error(f"Error: {e}")
 elif tune_btn:
@@ -333,8 +350,6 @@ elif tune_btn:
             data = json.loads(raw)
             segments = data.get("segments", [])
 
-            result_area.markdown(render_tree(segments), unsafe_allow_html=True)
-
             simplified_count = sum(1 for s in segments if s.get("type") == "simplified")
             dropped_count    = sum(1 for s in segments if s.get("type") == "dropped")
 
@@ -344,10 +359,12 @@ elif tune_btn:
             if dropped_count:
                 parts.append(f"{dropped_count} dropped")
 
-            if parts:
-                st.success(", ".join(parts) + ".")
-            else:
-                st.info("No changes were needed for this level.")
+            st.session_state.update(
+                segments=segments,
+                summary=", ".join(parts) + "." if parts else "",
+                note="" if parts else "No changes were needed for this level.",
+                unreplaced=[],
+            )
 
         except json.JSONDecodeError:
             st.error("Could not parse the AI response. Please try again.")
@@ -356,3 +373,20 @@ elif tune_btn:
             st.error("Invalid API key. Please check your OpenAI API key.")
         except Exception as e:
             st.error(f"Error: {e}")
+
+# ── Persistent result render (survives A+/A− and other reruns) ───────────────
+
+_segments = st.session_state.get("segments")
+if _segments is not None:
+    result_area.markdown(
+        render_tree(_segments, st.session_state.font_px), unsafe_allow_html=True
+    )
+    if st.session_state.get("summary"):
+        st.success(st.session_state["summary"])
+    if st.session_state.get("note"):
+        st.info(st.session_state["note"])
+    if st.session_state.get("unreplaced"):
+        st.warning(
+            "No easy replacement found for: "
+            + ", ".join(dict.fromkeys(st.session_state["unreplaced"]))
+        )
