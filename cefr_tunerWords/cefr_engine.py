@@ -224,7 +224,10 @@ class WordlistTuner:
             if form.lower() == token.text.lower():
                 continue
             start = token.idx - sent.start_char
-            edits.append((start, start + len(token.text), form))
+            # « » sentinels mark replaced words; render_tree turns them into
+            # a blue underline. spaCy tokenizes them as punctuation, so they
+            # don't interfere with split heuristics downstream.
+            edits.append((start, start + len(token.text), f"«{form}»"))
 
         for start, end, form in sorted(edits, reverse=True):
             text = text[:start] + form + text[end:]
@@ -315,7 +318,8 @@ class WordlistTuner:
         produced — deterministic dropping is too risky.
         """
         target_rank = LEVEL_RANK[target_level]
-        doc = self.nlp(text.strip())
+        # strip any stray sentinel chars from user input
+        doc = self.nlp(text.strip().replace("«", "").replace("»", ""))
         segments = []
         unreplaced_all = []
 
@@ -353,7 +357,7 @@ def _fix_articles(text):
     tokens = text.split(" ")
     for i, tok in enumerate(tokens):
         if tok.lower() == "a" and i + 1 < len(tokens):
-            nxt = tokens[i + 1].lstrip('"\'(')
+            nxt = tokens[i + 1].lstrip('"\'(«')
             if nxt[:1].lower() in "aeiou":
                 tok = "An" if tok[:1].isupper() else "an"
         out.append(tok)

@@ -125,6 +125,12 @@ ul.cefr-tree ul li::before {
   color: #bbb;
   font-style: normal;
 }
+ul.cefr-tree span.replaced {
+  text-decoration: underline;
+  text-decoration-color: #5580cc;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
 </style>
 """
 
@@ -137,7 +143,16 @@ BOX_STYLE = (
 
 # ── Rendering ─────────────────────────────────────────────────────────────────
 
-def render_tree(segments: list, font_px: int = 15) -> str:
+def _escape_simplified(text: str) -> str:
+    """Escape, then convert the engine's « » sentinels into underline spans."""
+    return (
+        html.escape(text)
+        .replace("«", '<span class="replaced">')
+        .replace("»", "</span>")
+    )
+
+
+def render_tree(segments: list, font_px: int = 24) -> str:
     """
     Bullet tree:
       • simplified text          (blue dot)
@@ -158,11 +173,11 @@ def render_tree(segments: list, font_px: int = 15) -> str:
         elif seg_type == "simplified":
             sub = f'<ul><li>{original}</li></ul>' if original else ""
             items.append(
-                f'<li>{html.escape(simplified)}{sub}</li>'
+                f'<li>{_escape_simplified(simplified)}{sub}</li>'
             )
 
         else:  # unchanged — no sub-bullet needed
-            items.append(f'<li class="unchanged">{html.escape(simplified)}</li>')
+            items.append(f'<li class="unchanged">{_escape_simplified(simplified)}</li>')
 
     inner = "\n".join(items)
     return (
@@ -252,7 +267,7 @@ st.caption(
 )
 
 st.subheader("Original Text")
-st.session_state.setdefault("font_px", 15)
+st.session_state.setdefault("font_px", 24)
 
 original_input = st.text_area(
     label="original",
