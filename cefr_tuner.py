@@ -259,6 +259,8 @@ with st.sidebar:
 
 # ── Main UI ───────────────────────────────────────────────────────────────────
 
+import streamlit.components.v1 as components
+
 st.title("CEFR Text Tuner")
 st.caption(
     "Each bullet is the simplified text. "
@@ -277,7 +279,50 @@ original_input = st.text_area(
     key="original_text",
 )
 
-col_tune, col_clear, _ = st.columns([2, 1, 5])
+# Paste-from-clipboard button. Streamlit's component iframes don't allow
+# clipboard-read, so the click handler calls the PARENT page's clipboard API
+# (top-level documents aren't under the iframe policy), then writes into the
+# streamlit textarea with the native setter + input/blur events so React
+# commits the value. Fills the textarea only — never triggers a tune.
+_PASTE_HTML = """
+<div style="display:flex;align-items:center;height:2.6rem;">
+<button id="pbtn" style="width:100%;padding:0.42rem 0;border-radius:8px;
+  border:1px solid rgba(49,51,63,0.3);background:transparent;cursor:pointer;
+  font-family:sans-serif;font-size:0.95rem;color:#31333F;">Paste</button>
+<style>
+@media (prefers-color-scheme: dark) {
+  #pbtn { color:#FAFAFA; border-color:rgba(250,250,250,0.3); }
+}
+</style>
+</div>
+<script>
+const btn = document.getElementById('pbtn');
+btn.addEventListener('click', async () => {
+  try {
+    const pwin = window.parent;
+    const text = await pwin.navigator.clipboard.readText();
+    const ta = pwin.document.querySelector('textarea[aria-label="original"]');
+    if (!ta) { btn.textContent = 'No text box found'; return; }
+    const setter = Object.getOwnPropertyDescriptor(
+      pwin.HTMLTextAreaElement.prototype, 'value').set;
+    ta.focus();
+    setter.call(ta, text);
+    ta.dispatchEvent(new pwin.Event('input', {bubbles: true}));
+    ta.blur();  // streamlit commits the textarea value on blur
+    btn.textContent = 'Pasted \\u2713';
+    setTimeout(() => { btn.textContent = 'Paste'; }, 1500);
+  } catch (e) {
+    // clipboard read blocked (permission/gesture) — focus the box for Cmd+V
+    const ta = window.parent.document.querySelector('textarea[aria-label="original"]');
+    if (ta) ta.focus();
+    btn.textContent = 'Press \\u2318V / Ctrl+V';
+    setTimeout(() => { btn.textContent = 'Paste'; }, 2500);
+  }
+});
+</script>
+"""
+
+col_tune, col_clear, col_paste, _ = st.columns([2, 1, 1, 4])
 with col_tune:
     tune_btn = st.button(f"Tune to {cefr_level}", type="primary", use_container_width=True)
 with col_clear:
@@ -288,6 +333,8 @@ with col_clear:
             original_text="", segments=None, summary="", note="", unreplaced=[]
         ),
     )
+with col_paste:
+    components.html(_PASTE_HTML, height=44)
 
 if engine == "OpenAI" and not api_key:
     st.info("Enter your OpenAI API key in the sidebar, or set OPENAI_API_KEY in your shell.")
