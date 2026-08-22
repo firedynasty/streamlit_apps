@@ -224,10 +224,11 @@ class WordlistTuner:
             if form.lower() == token.text.lower():
                 continue
             start = token.idx - sent.start_char
-            # « » sentinels mark replaced words; render_tree turns them into
-            # a blue underline. spaCy tokenizes them as punctuation, so they
-            # don't interfere with split heuristics downstream.
-            edits.append((start, start + len(token.text), f"«{form}»"))
+            # «new|orig» sentinels mark replaced words; render_tree renders
+            # them as "new (orig)" with the parenthetical in blue.
+            # spaCy tokenizes « » as punctuation so they don't interfere
+            # with split heuristics downstream.
+            edits.append((start, start + len(token.text), f"«{form}|{token.text}»"))
 
         for start, end, form in sorted(edits, reverse=True):
             text = text[:start] + form + text[end:]

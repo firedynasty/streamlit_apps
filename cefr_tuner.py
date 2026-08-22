@@ -125,11 +125,23 @@ ul.cefr-tree ul li::before {
   color: #bbb;
   font-style: normal;
 }
-ul.cefr-tree span.replaced {
+ul.cefr-tree span.original {
+  color: #5580cc;
+}
+/* Clickable hard words — the handler in _TOOLTIP_JS looks up data-w on
+   Datamuse. .unrep = no replacement found (underline + *), .replaced =
+   engine swapped it (underline only, gloss follows in parentheses). */
+ul.cefr-tree .unrep,
+ul.cefr-tree .replaced {
   text-decoration: underline;
   text-decoration-color: #5580cc;
-  text-decoration-thickness: 2px;
   text-underline-offset: 3px;
+  cursor: pointer;
+}
+ul.cefr-tree sup.unrep-mark {
+  color: #5580cc;
+  font-size: 0.62em;
+  margin-left: 1px;
 }
 </style>
 """
@@ -143,16 +155,50 @@ BOX_STYLE = (
 
 # ── Rendering ─────────────────────────────────────────────────────────────────
 
-def _escape_simplified(text: str) -> str:
-    """Escape, then convert the engine's « » sentinels into underline spans."""
-    return (
-        html.escape(text)
-        .replace("«", '<span class="replaced">')
-        .replace("»", "</span>")
+def _mark_unreplaced(text: str, unreplaced: frozenset) -> str:
+    """Wrap whole-word occurrences of unreplaced words in ⟦ ⟧ markers.
+    Sentinel chunks («...») are split out first so replaced words and their
+    glosses are never marked. Markers are converted to HTML after escaping."""
+    parts = re.split(r"(«[^|»]*\|[^»]*»)", text)
+    marked = []
+    for part in parts:
+        if part.startswith("«"):
+            marked.append(part)
+            continue
+        marked.append(re.sub(
+            r"[A-Za-z]+",
+            lambda m: f"⟦{m.group(0)}⟧" if m.group(0).lower() in unreplaced else m.group(0),
+            part,
+        ))
+    return "".join(marked)
+
+
+def _escape_simplified(text: str, unreplaced: frozenset = frozenset()) -> str:
+    """Escape, mark unreplaced words, then convert «new|orig» sentinels into:
+    new (orig) with (orig) in blue."""
+    if unreplaced:
+        text = _mark_unreplaced(text, unreplaced)
+    escaped = html.escape(text)
+    def _sub(m: re.Match) -> str:
+        new_word = m.group(1)
+        orig_word = m.group(2)
+        # Underline the ORIGINAL hard word and make it the tooltip trigger —
+        # lookups run on it, not on the gloss (alternatives to the easy word
+        # drift away from the sentence's meaning).
+        return (f'<span class="replaced" data-w="{orig_word.lower()}">{orig_word}</span> '
+                f'<span class="original">({new_word})</span>')
+    out = re.sub(r"«([^|»]+)\|([^»]+)»", _sub, escaped)
+    return re.sub(
+        r"⟦([^⟧]+)⟧",
+        lambda m: (
+            f'<span class="unrep" data-w="{m.group(1).lower()}">{m.group(1)}</span>'
+            f'<sup class="unrep-mark">*</sup>'
+        ),
+        out,
     )
 
 
-def render_tree(segments: list, font_px: int = 24) -> str:
+def render_tree(segments: list, font_px: int = 24, unreplaced: frozenset = frozenset()) -> str:
     """
     Bullet tree:
       • simplified text          (blue dot)
@@ -160,6 +206,8 @@ def render_tree(segments: list, font_px: int = 24) -> str:
       • unchanged text           (gray dot, no sub-bullet)
       • ~~dropped original~~     (red strikethrough, no sub-bullet)
     font_px scales the whole tree (inner sizes are em-based).
+    unreplaced (lowercased word set) marks still-hard words with a blue
+    underline + superscript *.
     """
     items = []
     for seg in segments:
@@ -171,13 +219,12 @@ def render_tree(segments: list, font_px: int = 24) -> str:
             items.append(f'<li class="dropped-li">{original}</li>')
 
         elif seg_type == "simplified":
-            sub = f'<ul><li>{original}</li></ul>' if original else ""
             items.append(
-                f'<li>{_escape_simplified(simplified)}{sub}</li>'
+                f'<li>{_escape_simplified(simplified, unreplaced)}</li>'
             )
 
         else:  # unchanged — no sub-bullet needed
-            items.append(f'<li class="unchanged">{_escape_simplified(simplified)}</li>')
+            items.append(f'<li class="unchanged">{_escape_simplified(simplified, unreplaced)}</li>')
 
     inner = "\n".join(items)
     return (
@@ -349,6 +396,151 @@ with col_plus:
     st.button("A+", use_container_width=True, help="Larger text",
               on_click=_bump_font, args=(1,))
 
+# Page-down button. The button markup goes into the parent page via
+# st.markdown — but <script> inside st.markdown never executes (Streamlit
+# inserts it via innerHTML, and scripts injected that way don't run).
+# So the click handler is bound separately below, from a same-origin
+# component iframe.
+st.markdown("""
+<div style="position:fixed;bottom:1.4rem;right:1.4rem;z-index:9999;">
+<button id="pgdn" title="Page down"
+  style="width:2.6rem;height:2.6rem;border-radius:50%;border:1px solid rgba(49,51,63,0.3);
+         background:transparent;cursor:pointer;font-size:1.2rem;line-height:1;color:#31333F;">
+  &#8595;
+</button>
+</div>
+<style>
+@media (prefers-color-scheme: dark) {
+  #pgdn { color:#FAFAFA; border-color:rgba(250,250,250,0.3); }
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Bind #pgdn's click handler on the PARENT document, using event delegation
+# (delegation survives Streamlit re-rendering the button node on reruns, and
+# the __pgdnBound flag prevents double-binding when this iframe re-executes).
+_PGDN_JS = """
+<script>
+const pwin = window.parent;
+if (!pwin.__pgdnBound) {
+  pwin.__pgdnBound = true;
+  pwin.document.addEventListener('click', (e) => {
+    const btn = e.target.closest('#pgdn');
+    if (!btn) return;
+    // Walk up from the button to the container that actually scrolls, so
+    // this works regardless of Streamlit's layout version.
+    let el = btn.parentElement;
+    while (el && el !== pwin.document.body) {
+      const s = pwin.getComputedStyle(el);
+      if (/(auto|scroll)/.test(s.overflowY) && el.scrollHeight > el.clientHeight) {
+        el.scrollBy({top: el.clientHeight * 0.85, behavior: 'smooth'});
+        return;
+      }
+      el = el.parentElement;
+    }
+    pwin.scrollBy({top: pwin.innerHeight * 0.85, behavior: 'smooth'});
+  });
+}
+</script>
+"""
+components.html(_PGDN_JS, height=0)
+
+# Synonym tooltip for unreplaced (blue-underlined) words. Fully CLIENT-SIDE:
+# the browser fetches api.datamuse.com directly — no Python rerun, no server
+# round trip. Bound from this component iframe (scripts in st.markdown don't
+# execute) via delegation on the parent document, so it survives reruns.
+# Results are cached in a Map on the parent window: repeat clicks are free.
+_TOOLTIP_JS = """
+<script>
+const pwin = window.parent, pdoc = pwin.document;
+if (!pwin.__unrepTipBound) {
+  pwin.__unrepTipBound = true;
+  pwin.__synCache = new Map();  // word -> Promise<string[]>
+
+  const style = pdoc.createElement('style');
+  style.textContent = [
+    '.unrep-tip{position:fixed;z-index:99999;max-width:320px;background:#fff;',
+    'color:#31333F;border:1px solid rgba(49,51,63,.25);border-radius:8px;',
+    'padding:8px 12px;font:14px/1.5 sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.15);}',
+    '.unrep-tip-body{margin-top:2px;}',
+    '.unrep-tip-label{color:#888;font-size:.85em;}',
+    '@media (prefers-color-scheme:dark){.unrep-tip{background:#262730;color:#FAFAFA;',
+    'border-color:rgba(250,250,250,.25);}}'
+  ].join('');
+  pdoc.head.appendChild(style);
+
+  let tip = null, reqSeq = 0;
+  const hideTip = () => { if (tip) { tip.remove(); tip = null; } };
+  const esc = (s) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  const showTip = (anchor, bodyHtml) => {
+    hideTip();
+    tip = pdoc.createElement('div');
+    tip.className = 'unrep-tip';
+    tip.innerHTML = bodyHtml;
+    pdoc.body.appendChild(tip);
+    const r = anchor.getBoundingClientRect();
+    let left = Math.max(8, Math.min(r.left, pwin.innerWidth - tip.offsetWidth - 8));
+    let top = r.bottom + 6;
+    if (top + tip.offsetHeight > pwin.innerHeight - 8) {
+      top = Math.max(8, r.top - tip.offsetHeight - 6);  // flip above the word
+    }
+    // hard clamp: never render outside the viewport
+    top = Math.max(8, Math.min(top, pwin.innerHeight - tip.offsetHeight - 8));
+    tip.style.left = left + 'px';
+    tip.style.top = top + 'px';
+  };
+
+  const fetchSyns = (word) => {
+    if (!pwin.__synCache.has(word)) {
+      const w = encodeURIComponent(word);
+      const get = (param) => fetch('https://api.datamuse.com/words?' + param + '=' + w + '&max=12')
+        .then(r => { if (!r.ok) throw new Error('datamuse ' + r.status); return r.json(); })
+        .then(arr => arr.map(o => o.word));
+      pwin.__synCache.set(word, Promise.allSettled([get('rel_syn'), get('ml')]).then(results => {
+        if (results.every(r => r.status === 'rejected')) throw new Error('datamuse unreachable');
+        const syn = results[0].status === 'fulfilled' ? results[0].value : [];
+        const ml  = results[1].status === 'fulfilled' ? results[1].value : [];
+        return { syn, similar: ml.filter(x => !syn.includes(x)) };  // dedupe overlap
+      }));
+    }
+    return pwin.__synCache.get(word);
+  };
+
+  const tipBody = (res) => {
+    const parts = [];
+    if (res.syn.length)     parts.push('<span class="unrep-tip-label">Synonyms:</span> ' + res.syn.map(esc).join(', '));
+    if (res.similar.length) parts.push('<span class="unrep-tip-label">Similar:</span> ' + res.similar.map(esc).join(', '));
+    return parts.length ? parts.join('<br>') : 'No synonyms found.';
+  };
+
+  pdoc.addEventListener('click', async (e) => {
+    const mark = e.target.closest('.unrep-mark');
+    const span = e.target.closest('.unrep,.replaced') || (mark && mark.previousElementSibling);
+    if (!span || !span.dataset || !span.dataset.w) {
+      if (tip && !tip.contains(e.target)) hideTip();  // clicked elsewhere
+      return;
+    }
+    const word = span.dataset.w, seq = ++reqSeq;
+    const head = '<b>' + esc(word) + '</b><div class="unrep-tip-body">';
+    showTip(span, head + '&hellip;</div>');
+    try {
+      const res = await fetchSyns(word);
+      if (seq !== reqSeq) return;  // user clicked another word meanwhile
+      showTip(span, head + tipBody(res) + '</div>');
+    } catch (err) {
+      pwin.__synCache.delete(word);  // don't cache failures
+      if (seq !== reqSeq) return;
+      showTip(span, head + 'Could not load synonyms.</div>');
+    }
+  });
+  pdoc.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideTip(); });
+  pdoc.addEventListener('scroll', hideTip, true);  // capture: catches container scrolls
+}
+</script>
+"""
+components.html(_TOOLTIP_JS, height=0)
+
 result_area = st.empty()
 result_area.markdown(
     f'<div style="{BOX_STYLE}color:#aaa;font-size:{st.session_state.font_px}px;">'
@@ -440,8 +632,12 @@ elif tune_btn:
 
 _segments = st.session_state.get("segments")
 if _segments is not None:
+    _unreplaced = frozenset(
+        w.lower() for w in (st.session_state.get("unreplaced") or [])
+    )
     result_area.markdown(
-        render_tree(_segments, st.session_state.font_px), unsafe_allow_html=True
+        render_tree(_segments, st.session_state.font_px, _unreplaced),
+        unsafe_allow_html=True,
     )
     if st.session_state.get("summary"):
         st.success(st.session_state["summary"])
