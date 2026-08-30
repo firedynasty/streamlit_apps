@@ -218,46 +218,72 @@ def render_problem_summary(pron_result: speechsdk.PronunciationAssessmentResult)
 
 
 def speak_word(word: str) -> bytes:
+    import wave, io
     from openai import OpenAI
+
     client = OpenAI(api_key=st.secrets.get("OPENAI_API_KEY", ""))
     response = client.audio.speech.create(
         model="tts-1",
         voice="nova",
         input=word,
+        response_format="wav",
     )
-    return response.content
+    wav_bytes = response.content
+
+    # Pad to at least 1.1 s so the browser shows 0:01 instead of 0:00
+    with wave.open(io.BytesIO(wav_bytes), "rb") as wf:
+        params = wf.getparams()
+        frames = wf.readframes(wf.getnframes())
+        framerate, sampwidth, nchannels = wf.getframerate(), wf.getsampwidth(), wf.getnchannels()
+
+    duration = len(frames) / (framerate * sampwidth * nchannels)
+    if duration < 1.1:
+        silence = b"\x00" * int((1.1 - duration) * framerate * sampwidth * nchannels)
+        frames += silence
+
+    out = io.BytesIO()
+    with wave.open(out, "wb") as wf:
+        wf.setparams(params)
+        wf.writeframes(frames)
+    return out.getvalue()
 
 
 def render_word_practice(pron_result: speechsdk.PronunciationAssessmentResult):
-    problem_words = [
-        w.word for w in pron_result.words
-        if w.error_type not in ("None", "", "Insertion") and w.accuracy_score < 80
-    ]
-    all_words = [w.word for w in pron_result.words if w.error_type != "Insertion"]
+    # Only focus words in the dropdown
     seen = set()
-    ordered = []
-    for w in problem_words + all_words:
-        if w.lower() not in seen:
-            seen.add(w.lower())
-            ordered.append(w)
+    focus_words = []
+    for w in pron_result.words:
+        if w.error_type not in ("None", "", "Insertion") and w.accuracy_score < 80:
+            if w.word.lower() not in seen:
+                seen.add(w.word.lower())
+                focus_words.append(w.word)
+
+    if not focus_words:
+        return
 
     st.markdown('<div class="section-title">Practice a word</div>', unsafe_allow_html=True)
 
     selected = st.selectbox(
         "Choose a word:",
-        options=ordered,
+        options=focus_words,
         key="practice_word_select",
         label_visibility="collapsed",
     )
 
+    tts_key = f"tts_{selected}"
+
     col_hear, col_rec = st.columns([1, 2])
 
     with col_hear:
-        if st.button("▶ Hear it", use_container_width=True):
-            with st.spinner("Synthesizing…"):
-                tts_bytes = speak_word(selected)
-            if tts_bytes:
-                st.audio(tts_bytes, format="audio/mp3", autoplay=True)
+        if tts_key in st.session_state:
+            st.audio(st.session_state[tts_key], format="audio/wav", autoplay=True)
+        else:
+            if st.button("▶ Hear it", use_container_width=True):
+                with st.spinner("Synthesizing…"):
+                    tts_bytes = speak_word(selected)
+                if tts_bytes:
+                    st.session_state[tts_key] = tts_bytes
+                    st.rerun()
 
     with col_rec:
         practice_audio = st.audio_input(
