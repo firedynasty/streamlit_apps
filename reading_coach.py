@@ -218,17 +218,14 @@ def render_problem_summary(pron_result: speechsdk.PronunciationAssessmentResult)
 
 
 def speak_word(word: str) -> bytes:
-    speech_key = st.secrets.get("AZURE_SPEECH_KEY", "")
-    region = st.secrets.get("AZURE_REGION", "eastus")
-    speech_config = speechsdk.SpeechConfig(subscription=speech_key, region=region)
-    speech_config.speech_synthesis_voice_name = "en-US-JennyNeural"
-    synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=None)
-    result = synthesizer.speak_text_async(word).get()
-    if result.reason == speechsdk.ResultReason.Canceled:
-        details = speechsdk.CancellationDetails.from_result(result)
-        st.error(f"TTS error: {details.error_details}")
-        return b""
-    return result.audio_data
+    from openai import OpenAI
+    client = OpenAI(api_key=st.secrets.get("OPENAI_API_KEY", ""))
+    response = client.audio.speech.create(
+        model="tts-1",
+        voice="nova",
+        input=word,
+    )
+    return response.content
 
 
 def render_word_practice(pron_result: speechsdk.PronunciationAssessmentResult):
@@ -260,7 +257,7 @@ def render_word_practice(pron_result: speechsdk.PronunciationAssessmentResult):
             with st.spinner("Synthesizing…"):
                 tts_bytes = speak_word(selected)
             if tts_bytes:
-                st.audio(tts_bytes, format="audio/wav", autoplay=True)
+                st.audio(tts_bytes, format="audio/mp3", autoplay=True)
 
     with col_rec:
         practice_audio = st.audio_input(
