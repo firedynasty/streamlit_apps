@@ -10,11 +10,11 @@ Secrets (in .streamlit/secrets.toml):
     AZURE_REGION     = "eastus"
 """
 
+import hashlib
 import os
 import tempfile
 import streamlit as st
 import azure.cognitiveservices.speech as speechsdk
-from streamlit_mic_recorder import mic_recorder
 
 # ── Page config ───────────────────────────────────────────────────────────────
 
@@ -29,13 +29,9 @@ st.markdown(
 
 st.markdown("""
 <style>
-/* Overall tone */
 body { background: #0e1117; }
-
-/* Passage textarea */
 textarea { font-size: 18px !important; line-height: 1.6 !important; }
 
-/* Score cards */
 .score-grid {
     display: flex;
     gap: 14px;
@@ -67,7 +63,6 @@ textarea { font-size: 18px !important; line-height: 1.6 !important; }
 .score-card .value.ok    { color: #facc15; }
 .score-card .value.poor  { color: #f87171; }
 
-/* Word chips */
 .word-row {
     display: flex;
     flex-wrap: wrap;
@@ -89,12 +84,8 @@ textarea { font-size: 18px !important; line-height: 1.6 !important; }
 .chip.poor      { background: #450a0a; color: #f87171; border: 1px solid #7f1d1d; }
 .chip.omission  { background: #1e1b4b; color: #a5b4fc; border: 1px solid #312e81; }
 .chip.insertion { background: #2d1d4b; color: #c4b5fd; border: 1px solid #4c1d95; }
-.chip .badge {
-    font-size: 10px;
-    opacity: .75;
-}
+.chip .badge    { font-size: 10px; opacity: .75; }
 
-/* Section headers */
 .section-title {
     font-size: 13px;
     letter-spacing: .1em;
@@ -129,7 +120,6 @@ def _error_label(error_type: str) -> str:
 
 
 def assess(audio_bytes: bytes, reference_text: str) -> speechsdk.PronunciationAssessmentResult:
-    """Run Azure pronunciation assessment and return the result object."""
     speech_key = st.secrets.get("AZURE_SPEECH_KEY", "")
     region = st.secrets.get("AZURE_REGION", "eastus")
 
@@ -175,7 +165,6 @@ def render_scores(pron_result: speechsdk.PronunciationAssessmentResult):
         "Prosody":      pron_result.prosody_score,
         "Overall":      pron_result.pronunciation_score,
     }
-
     cards = "".join(
         f"""<div class="score-card">
                 <div class="label">{label}</div>
@@ -188,32 +177,24 @@ def render_scores(pron_result: speechsdk.PronunciationAssessmentResult):
 
 def render_words(pron_result: speechsdk.PronunciationAssessmentResult):
     st.markdown('<div class="section-title">Word-by-word breakdown</div>', unsafe_allow_html=True)
-
     chips = []
     for word in pron_result.words:
-        err = word.error_type  # "None", "Mispronunciation", "Omission", "Insertion"
+        err = word.error_type
         score = word.accuracy_score
 
         if err == "Omission":
-            css = "omission"
-            badge = "skip"
+            css, badge = "omission", "skip"
         elif err == "Insertion":
-            css = "insertion"
-            badge = "extra"
+            css, badge = "insertion", "extra"
         elif err not in ("None", ""):
-            css = _score_class(score)
-            badge = _error_label(err)
+            css, badge = _score_class(score), _error_label(err)
         else:
-            css = _score_class(score)
-            badge = f"{score:.0f}"
+            css, badge = _score_class(score), f"{score:.0f}"
 
         chips.append(
-            f'<span class="chip {css}">'
-            f'{word.word}'
-            f'<span class="badge">{badge}</span>'
-            f'</span>'
+            f'<span class="chip {css}">{word.word}'
+            f'<span class="badge">{badge}</span></span>'
         )
-
     st.markdown(f'<div class="word-row">{"".join(chips)}</div>', unsafe_allow_html=True)
 
 
@@ -237,7 +218,6 @@ def render_problem_summary(pron_result: speechsdk.PronunciationAssessmentResult)
 
 
 def speak_word(word: str) -> bytes:
-    """Synthesize a single word with Azure TTS and return WAV bytes."""
     speech_key = st.secrets.get("AZURE_SPEECH_KEY", "")
     region = st.secrets.get("AZURE_REGION", "eastus")
     speech_config = speechsdk.SpeechConfig(subscription=speech_key, region=region)
@@ -252,13 +232,11 @@ def speak_word(word: str) -> bytes:
 
 
 def render_word_practice(pron_result: speechsdk.PronunciationAssessmentResult):
-    # Build word list: problem words first, then the rest
     problem_words = [
         w.word for w in pron_result.words
         if w.error_type not in ("None", "", "Insertion") and w.accuracy_score < 80
     ]
     all_words = [w.word for w in pron_result.words if w.error_type != "Insertion"]
-    # Deduplicate while preserving order
     seen = set()
     ordered = []
     for w in problem_words + all_words:
@@ -280,24 +258,23 @@ def render_word_practice(pron_result: speechsdk.PronunciationAssessmentResult):
     with col_hear:
         if st.button("▶ Hear it", use_container_width=True):
             with st.spinner("Synthesizing…"):
-                audio_bytes = speak_word(selected)
-            if audio_bytes:
-                st.audio(audio_bytes, format="audio/wav", autoplay=True)
+                tts_bytes = speak_word(selected)
+            if tts_bytes:
+                st.audio(tts_bytes, format="audio/wav", autoplay=True)
 
     with col_rec:
-        practice_audio = mic_recorder(
-            start_prompt="Record yourself",
-            stop_prompt="Stop",
-            format="wav",
+        practice_audio = st.audio_input(
+            "Record yourself",
             key=f"practice_rec_{selected}",
+            label_visibility="collapsed",
         )
 
     if practice_audio:
-        # Auto-assess on stop; cache by recording id so reruns don't re-call Azure
-        cache_key = f"practice_score_{selected}_{practice_audio['id']}"
+        audio_bytes = practice_audio.getvalue()
+        cache_key = f"practice_score_{selected}_{hashlib.md5(audio_bytes).hexdigest()[:8]}"
         if cache_key not in st.session_state:
             with st.spinner("Checking…"):
-                word_result = assess(practice_audio["bytes"], selected)
+                word_result = assess(audio_bytes, selected)
             st.session_state[cache_key] = word_result.accuracy_score
 
         score = st.session_state[cache_key]
@@ -326,18 +303,13 @@ with col_left:
     )
 
     st.markdown("#### Record")
-    st.caption("Click **Start**, read the passage aloud at a natural pace, then click **Stop**.")
-    audio = mic_recorder(
-        start_prompt="Start recording",
-        stop_prompt="Stop recording",
-        format="wav",
-        key="recorder",
-    )
+    st.caption("Record yourself reading the passage aloud, then click **Assess**.")
+    audio = st.audio_input("Record passage", key="recorder", label_visibility="collapsed")
 
     if audio and passage.strip():
         if st.button("Assess pronunciation", type="primary", use_container_width=True):
             with st.spinner("Sending to Azure Speech…"):
-                result = assess(audio["bytes"], passage.strip())
+                result = assess(audio.getvalue(), passage.strip())
             st.session_state["pron_result"] = result
 
 with col_right:

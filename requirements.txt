@@ -9,4 +9,3 @@ en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_
 # The CEFR tuner runs off precomputed cefr_tunerWords/cefr_data.json.
 # Only needed to REBUILD that file locally: nltk (+ wordnet corpus), lemminflect.
 azure-cognitiveservices-speech
-streamlit-mic-recorder
