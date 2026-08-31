@@ -120,6 +120,15 @@ textarea { font-size: 18px !important; line-height: 1.6 !important; }
     border-bottom: 1px solid #2e3340;
     padding-bottom: 6px;
 }
+
+/* Style the play button inside native audio controls (Chrome/Safari) */
+audio::-webkit-media-controls-play-button {
+    background-color: #ff4b4b;
+    border-radius: 50%;
+}
+audio::-webkit-media-controls-play-button:hover {
+    background-color: #e03e3e;
+}
 </style>
 """, unsafe_allow_html=True)
 
