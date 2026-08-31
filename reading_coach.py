@@ -352,21 +352,42 @@ with col_left:
         key="passage_text",
     )
 
-    btn_clear, btn_assess = st.columns([1, 2])
+    btn_clear, btn_listen, btn_assess = st.columns([1, 1, 2])
     with btn_clear:
         if st.button("Clear", use_container_width=True):
             st.session_state["passage_text"] = ""
+            st.session_state.pop("passage_tts", None)
             st.rerun()
+    with btn_listen:
+        listen_clicked = st.button("▶ Listen", use_container_width=True)
     with btn_assess:
         assess_clicked = st.button("Assess pronunciation", type="primary", use_container_width=True)
+
+    if listen_clicked:
+        if not passage.strip():
+            st.toast("Please paste a passage first.", icon="⚠️")
+        else:
+            passage_key = hashlib.md5(passage.strip().encode()).hexdigest()[:12]
+            if st.session_state.get("passage_tts_key") != passage_key:
+                with st.spinner("Generating audio…"):
+                    st.session_state["passage_tts"] = speak_word(passage.strip())
+                    st.session_state["passage_tts_key"] = passage_key
+
+    if st.session_state.get("passage_tts"):
+        st.audio(st.session_state["passage_tts"], format="audio/wav", autoplay=listen_clicked)
 
     st.markdown("#### Record")
     audio = st.audio_input("Record passage", key="recorder", label_visibility="collapsed")
 
-    if assess_clicked and audio and passage.strip():
-        with st.spinner("Sending to Azure Speech…"):
-            result = assess(audio.getvalue(), passage.strip())
-        st.session_state["pron_result"] = result
+    if assess_clicked:
+        if not passage.strip():
+            st.toast("Please paste a passage first.", icon="⚠️")
+        elif not audio:
+            st.toast("Please record yourself reading the passage first.", icon="⚠️")
+        else:
+            with st.spinner("Sending to Azure Speech…"):
+                result = assess(audio.getvalue(), passage.strip())
+            st.session_state["pron_result"] = result
 
 with col_right:
     if "pron_result" in st.session_state:
