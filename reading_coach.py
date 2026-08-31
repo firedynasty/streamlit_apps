@@ -13,9 +13,8 @@ Secrets (in .streamlit/secrets.toml):
 import hashlib
 import os
 import tempfile
-from datetime import datetime, timedelta
 import streamlit as st
-import extra_streamlit_components as stx
+from streamlit_cookies_controller import CookieController
 import azure.cognitiveservices.speech as speechsdk
 
 # ── Page config ───────────────────────────────────────────────────────────────
@@ -29,20 +28,17 @@ st.markdown(
 
 # ── Password gate ─────────────────────────────────────────────────────────────
 
-@st.cache_resource
-def get_cookie_manager():
-    return stx.CookieManager()
+_cookies = CookieController()
 
 def check_password():
-    cookie_manager = get_cookie_manager()
-    if st.session_state.get("authenticated") or cookie_manager.get("rc_auth") == "1":
+    if st.session_state.get("authenticated") or _cookies.get("rc_auth") == "1":
         st.session_state["authenticated"] = True
         return True
     pw = st.text_input("Enter password to access this app", type="password")
     if pw:
         if pw == st.secrets.get("APP_PASSWORD", ""):
             st.session_state["authenticated"] = True
-            cookie_manager.set("rc_auth", "1", expires_at=datetime.now() + timedelta(days=30))
+            _cookies.set("rc_auth", "1")
             st.rerun()
         else:
             st.error("Incorrect password.")
