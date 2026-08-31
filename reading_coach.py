@@ -375,12 +375,14 @@ with col_left:
         key="passage_text",
     )
 
+    def _clear_passage():
+        st.session_state["passage_text"] = ""
+        st.session_state.pop("passage_tts", None)
+        st.session_state.pop("passage_tts_key", None)
+
     btn_clear, btn_listen = st.columns([1, 1])
     with btn_clear:
-        if st.button("Clear", use_container_width=True):
-            st.session_state["passage_text"] = ""
-            st.session_state.pop("passage_tts", None)
-            st.rerun()
+        st.button("Clear", use_container_width=True, on_click=_clear_passage)
     with btn_listen:
         listen_clicked = st.button("▶ Listen", use_container_width=True)
 
