@@ -257,9 +257,8 @@ def speak_word(word: str) -> bytes:
 
     # Pad to at least 1.1 s so the browser shows 0:01 instead of 0:00
     with wave.open(io.BytesIO(wav_bytes), "rb") as wf:
-        params = wf.getparams()
+        nchannels, sampwidth, framerate = wf.getnchannels(), wf.getsampwidth(), wf.getframerate()
         frames = wf.readframes(wf.getnframes())
-        framerate, sampwidth, nchannels = wf.getframerate(), wf.getsampwidth(), wf.getnchannels()
 
     duration = len(frames) / (framerate * sampwidth * nchannels)
     if duration < 1.1:
@@ -268,7 +267,9 @@ def speak_word(word: str) -> bytes:
 
     out = io.BytesIO()
     with wave.open(out, "wb") as wf:
-        wf.setparams(params)
+        wf.setnchannels(nchannels)
+        wf.setsampwidth(sampwidth)
+        wf.setframerate(framerate)
         wf.writeframes(frames)
     return out.getvalue()
 
