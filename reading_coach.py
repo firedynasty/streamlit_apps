@@ -345,9 +345,18 @@ def render_word_practice(pron_result: speechsdk.PronunciationAssessmentResult):
         audio_bytes = practice_audio.getvalue()
         cache_key = f"practice_score_{selected}_{hashlib.md5(audio_bytes).hexdigest()[:8]}"
         if cache_key not in st.session_state:
-            with st.spinner("Checking���"):
+            with st.spinner("Checking…"):
                 word_result = assess(audio_bytes, selected)
             st.session_state[cache_key] = word_result.accuracy_score
+
+        score = st.session_state[cache_key]
+        css = _score_class(score)
+        color = {"good": "#4ade80", "ok": "#facc15", "poor": "#f87171"}[css]
+        st.markdown(
+            f'<p style="font-size:22px; font-weight:700; color:{color}; margin-top:8px;">'
+            f'"{selected}" — {score:.0f} / 100</p>',
+            unsafe_allow_html=True,
+        )
 
 # ── Main UI ───────────────────────────────────────────────────────────────────
 
