@@ -349,63 +349,53 @@ def render_word_practice(pron_result: speechsdk.PronunciationAssessmentResult):
 st.title("Reading Coach")
 st.caption("Paste a passage, record yourself reading it, and get instant pronunciation feedback.")
 
-col_left, col_right = st.columns([1, 1], gap="large")
+st.markdown("#### Paste Passage for Reference")
+passage = st.text_area(
+    "Paste or type the text you want to practise:",
+    height=200,
+    placeholder="e.g. The quick brown fox jumps over the lazy dog.",
+    label_visibility="collapsed",
+    key="passage_text",
+)
 
-with col_left:
-    st.markdown("#### Passage")
-    passage = st.text_area(
-        "Paste or type the text you want to practise:",
-        height=260,
-        placeholder="e.g. The quick brown fox jumps over the lazy dog.",
-        label_visibility="collapsed",
-        key="passage_text",
-    )
+btn_clear, btn_listen = st.columns([1, 1])
+with btn_clear:
+    if st.button("Clear", use_container_width=True):
+        st.session_state["passage_text"] = ""
+        st.session_state.pop("passage_tts", None)
+        st.rerun()
+with btn_listen:
+    listen_clicked = st.button("▶ Listen", use_container_width=True)
 
-    btn_clear, btn_listen = st.columns([1, 1])
-    with btn_clear:
-        if st.button("Clear", use_container_width=True):
-            st.session_state["passage_text"] = ""
-            st.session_state.pop("passage_tts", None)
-            st.rerun()
-    with btn_listen:
-        listen_clicked = st.button("▶ Listen", use_container_width=True)
-
-    if listen_clicked:
-        if not passage.strip():
-            st.toast("Please paste a passage first.", icon="⚠️")
-        else:
-            passage_key = hashlib.md5(passage.strip().encode()).hexdigest()[:12]
-            if st.session_state.get("passage_tts_key") != passage_key:
-                with st.spinner("Generating audio…"):
-                    st.session_state["passage_tts"] = speak_word(passage.strip())
-                    st.session_state["passage_tts_key"] = passage_key
-
-    if st.session_state.get("passage_tts"):
-        st.audio(st.session_state["passage_tts"], format="audio/wav", autoplay=listen_clicked)
-
-    st.markdown("#### Record")
-    audio = st.audio_input("Record passage", key="recorder", label_visibility="collapsed")
-
-    assess_clicked = st.button("Assess pronunciation", type="primary", use_container_width=True)
-
-    if assess_clicked:
-        if not passage.strip():
-            st.toast("Please paste a passage first.", icon="⚠️")
-        elif not audio:
-            st.toast("Please record yourself reading the passage first.", icon="⚠️")
-        else:
-            with st.spinner("Sending to Azure Speech…"):
-                result = assess(audio.getvalue(), passage.strip())
-            st.session_state["pron_result"] = result
-
-with col_right:
-    if "pron_result" in st.session_state:
-        result = st.session_state["pron_result"]
-        st.markdown("#### Results")
-        render_scores(result)
-        render_words(result)
-        render_problem_summary(result)
-        render_word_practice(result)
+if listen_clicked:
+    if not passage.strip():
+        st.toast("Please paste a passage first.", icon="⚠️")
     else:
-        st.markdown("#### Results")
-        st.info("Record yourself reading the passage, then click **Assess pronunciation**.")
+        passage_key = hashlib.md5(passage.strip().encode()).hexdigest()[:12]
+        if st.session_state.get("passage_tts_key") != passage_key:
+            with st.spinner("Generating audio…"):
+                st.session_state["passage_tts"] = speak_word(passage.strip())
+                st.session_state["passage_tts_key"] = passage_key
+
+if st.session_state.get("passage_tts"):
+    st.audio(st.session_state["passage_tts"], format="audio/wav", autoplay=listen_clicked)
+
+st.markdown("#### Record")
+audio = st.audio_input("Record passage", key="recorder", label_visibility="collapsed")
+
+# Auto-assess when a new recording is captured
+if audio and passage.strip():
+    audio_hash = hashlib.md5(audio.getvalue()).hexdigest()[:12]
+    if st.session_state.get("last_audio_hash") != audio_hash:
+        st.session_state["last_audio_hash"] = audio_hash
+        with st.spinner("Sending to Azure Speech…"):
+            result = assess(audio.getvalue(), passage.strip())
+        st.session_state["pron_result"] = result
+
+if "pron_result" in st.session_state:
+    result = st.session_state["pron_result"]
+    st.markdown("#### Results")
+    render_scores(result)
+    render_words(result)
+    render_problem_summary(result)
+    render_word_practice(result)
