@@ -349,17 +349,24 @@ with col_left:
         height=260,
         placeholder="e.g. The quick brown fox jumps over the lazy dog.",
         label_visibility="collapsed",
+        key="passage_text",
     )
 
+    btn_clear, btn_assess = st.columns([1, 2])
+    with btn_clear:
+        if st.button("Clear", use_container_width=True):
+            st.session_state["passage_text"] = ""
+            st.rerun()
+    with btn_assess:
+        assess_clicked = st.button("Assess pronunciation", type="primary", use_container_width=True)
+
     st.markdown("#### Record")
-    st.caption("Record yourself reading the passage aloud, then click **Assess**.")
     audio = st.audio_input("Record passage", key="recorder", label_visibility="collapsed")
 
-    if audio and passage.strip():
-        if st.button("Assess pronunciation", type="primary", use_container_width=True):
-            with st.spinner("Sending to Azure Speech…"):
-                result = assess(audio.getvalue(), passage.strip())
-            st.session_state["pron_result"] = result
+    if assess_clicked and audio and passage.strip():
+        with st.spinner("Sending to Azure Speech…"):
+            result = assess(audio.getvalue(), passage.strip())
+        st.session_state["pron_result"] = result
 
 with col_right:
     if "pron_result" in st.session_state:
