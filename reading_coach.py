@@ -13,7 +13,9 @@ Secrets (in .streamlit/secrets.toml):
 import hashlib
 import os
 import tempfile
+from datetime import datetime, timedelta
 import streamlit as st
+import extra_streamlit_components as stx
 import azure.cognitiveservices.speech as speechsdk
 
 # ── Page config ───────────────────────────────────────────────────────────────
@@ -24,6 +26,30 @@ st.markdown(
     "<style>[data-testid='collapsedControl'] { display: none; }</style>",
     unsafe_allow_html=True,
 )
+
+# ── Password gate ─────────────────────────────────────────────────────────────
+
+@st.cache_resource
+def get_cookie_manager():
+    return stx.CookieManager()
+
+def check_password():
+    cookie_manager = get_cookie_manager()
+    if st.session_state.get("authenticated") or cookie_manager.get("rc_auth") == "1":
+        st.session_state["authenticated"] = True
+        return True
+    pw = st.text_input("Enter password to access this app", type="password")
+    if pw:
+        if pw == st.secrets.get("APP_PASSWORD", ""):
+            st.session_state["authenticated"] = True
+            cookie_manager.set("rc_auth", "1", expires_at=datetime.now() + timedelta(days=30))
+            st.rerun()
+        else:
+            st.error("Incorrect password.")
+    return False
+
+if not check_password():
+    st.stop()
 
 # ── CSS ───────────────────────────────────────────────────────────────────────
 
