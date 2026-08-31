@@ -296,7 +296,23 @@ def render_word_practice(pron_result: speechsdk.PronunciationAssessmentResult):
     if not focus_words:
         return
 
-    st.markdown('<div class="section-title">Practice a word</div>', unsafe_allow_html=True)
+    # Read current selection from session state so score can be inlined in the title
+    current_word = st.session_state.get("practice_word_select", focus_words[0])
+    score_span = ""
+    for key, val in st.session_state.items():
+        if key.startswith(f"practice_score_{current_word}_"):
+            css = _score_class(val)
+            color = {"good": "#4ade80", "ok": "#facc15", "poor": "#f87171"}[css]
+            score_span = (
+                f' <span style="font-size:14px; font-weight:700; color:{color};">'
+                f'"{current_word}" — {val:.0f} / 100</span>'
+            )
+            break
+
+    st.markdown(
+        f'<div class="section-title">Practice a word{score_span}</div>',
+        unsafe_allow_html=True,
+    )
 
     selected = st.selectbox(
         "Choose a word:",
@@ -325,23 +341,13 @@ def render_word_practice(pron_result: speechsdk.PronunciationAssessmentResult):
             label_visibility="collapsed",
         )
 
-    # Row 2: score results
     if practice_audio:
         audio_bytes = practice_audio.getvalue()
         cache_key = f"practice_score_{selected}_{hashlib.md5(audio_bytes).hexdigest()[:8]}"
         if cache_key not in st.session_state:
-            with st.spinner("Checking…"):
+            with st.spinner("Checking���"):
                 word_result = assess(audio_bytes, selected)
             st.session_state[cache_key] = word_result.accuracy_score
-
-        score = st.session_state[cache_key]
-        css = _score_class(score)
-        color = {"good": "#4ade80", "ok": "#facc15", "poor": "#f87171"}[css]
-        st.markdown(
-            f'<p style="font-size:22px; font-weight:700; color:{color}; margin-top:8px;">'
-            f'"{selected}" — {score:.0f} / 100</p>',
-            unsafe_allow_html=True,
-        )
 
 # ── Main UI ───────────────────────────────────────────────────────────────────
 
