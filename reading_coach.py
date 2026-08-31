@@ -355,7 +355,7 @@ st.caption("Paste a passage, record yourself reading it, and get instant pronunc
 col_left, col_right = st.columns([1, 1], gap="large")
 
 with col_left:
-    st.markdown("#### Paste Passage for Reference")
+    st.markdown("#### Required Passage for Grading")
     passage = st.text_area(
         "Paste or type the text you want to practise:",
         height=260,
