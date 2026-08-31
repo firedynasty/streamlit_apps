@@ -352,7 +352,7 @@ with col_left:
         key="passage_text",
     )
 
-    btn_clear, btn_listen, btn_assess = st.columns([1, 1, 2])
+    btn_clear, btn_listen = st.columns([1, 1])
     with btn_clear:
         if st.button("Clear", use_container_width=True):
             st.session_state["passage_text"] = ""
@@ -360,8 +360,6 @@ with col_left:
             st.rerun()
     with btn_listen:
         listen_clicked = st.button("▶ Listen", use_container_width=True)
-    with btn_assess:
-        assess_clicked = st.button("Assess pronunciation", type="primary", use_container_width=True)
 
     if listen_clicked:
         if not passage.strip():
@@ -378,6 +376,8 @@ with col_left:
 
     st.markdown("#### Record")
     audio = st.audio_input("Record passage", key="recorder", label_visibility="collapsed")
+
+    assess_clicked = st.button("Assess pronunciation", type="primary", use_container_width=True)
 
     if assess_clicked:
         if not passage.strip():
