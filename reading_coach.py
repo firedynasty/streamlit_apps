@@ -307,18 +307,16 @@ def render_word_practice(pron_result: speechsdk.PronunciationAssessmentResult):
 
     tts_key = f"tts_{selected}"
 
-    col_hear, col_rec = st.columns([1, 2])
+    # Row 1: Hear it (left) | Record yourself (right) — stable layout
+    col_hear, col_rec = st.columns([1, 1])
 
     with col_hear:
+        hear_clicked = st.button("▶ Hear it", use_container_width=True, key=f"hear_btn_{selected}")
+        if hear_clicked and tts_key not in st.session_state:
+            with st.spinner("Synthesizing…"):
+                st.session_state[tts_key] = speak_word(selected)
         if tts_key in st.session_state:
-            st.audio(st.session_state[tts_key], format="audio/wav", autoplay=True)
-        else:
-            if st.button("▶ Hear it", use_container_width=True):
-                with st.spinner("Synthesizing…"):
-                    tts_bytes = speak_word(selected)
-                if tts_bytes:
-                    st.session_state[tts_key] = tts_bytes
-                    st.rerun()
+            st.audio(st.session_state[tts_key], format="audio/wav", autoplay=hear_clicked)
 
     with col_rec:
         practice_audio = st.audio_input(
@@ -327,6 +325,7 @@ def render_word_practice(pron_result: speechsdk.PronunciationAssessmentResult):
             label_visibility="collapsed",
         )
 
+    # Row 2: score results
     if practice_audio:
         audio_bytes = practice_audio.getvalue()
         cache_key = f"practice_score_{selected}_{hashlib.md5(audio_bytes).hexdigest()[:8]}"
