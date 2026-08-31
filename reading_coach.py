@@ -296,21 +296,17 @@ def render_word_practice(pron_result: speechsdk.PronunciationAssessmentResult):
     if not focus_words:
         return
 
-    # Read current selection from session state so score can be inlined in the title
     current_word = st.session_state.get("practice_word_select", focus_words[0])
-    score_span = ""
-    for key, val in st.session_state.items():
-        if key.startswith(f"practice_score_{current_word}_"):
-            css = _score_class(val)
-            color = {"good": "#4ade80", "ok": "#facc15", "poor": "#f87171"}[css]
-            score_span = (
-                f' <span style="font-size:14px; font-weight:700; color:{color};">'
-                f'"{current_word}" — {val:.0f} / 100</span>'
-            )
-            break
+    latest_score = st.session_state.get(f"practice_latest_{current_word}")
+    if latest_score is not None:
+        css = _score_class(latest_score)
+        color = {"good": "#4ade80", "ok": "#facc15", "poor": "#f87171"}[css]
+        score_part = f' <span style="color:{color};">Score: {latest_score:.0f} / 100</span>'
+    else:
+        score_part = ' <span style="color:#6b7280;">Score: —</span>'
 
     st.markdown(
-        f'<div class="section-title">Practice a word{score_span}</div>',
+        f'<div class="section-title">Practice a word{score_part}</div>',
         unsafe_allow_html=True,
     )
 
@@ -348,15 +344,8 @@ def render_word_practice(pron_result: speechsdk.PronunciationAssessmentResult):
             with st.spinner("Checking…"):
                 word_result = assess(audio_bytes, selected)
             st.session_state[cache_key] = word_result.accuracy_score
-
-        score = st.session_state[cache_key]
-        css = _score_class(score)
-        color = {"good": "#4ade80", "ok": "#facc15", "poor": "#f87171"}[css]
-        st.markdown(
-            f'<p style="font-size:22px; font-weight:700; color:{color}; margin-top:8px;">'
-            f'"{selected}" — {score:.0f} / 100</p>',
-            unsafe_allow_html=True,
-        )
+            st.session_state[f"practice_latest_{selected}"] = st.session_state[cache_key]
+            st.rerun()
 
 # ── Main UI ───────────────────────────────────────────────────────────────────
 
