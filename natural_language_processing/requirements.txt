@@ -1,6 +1,6 @@
 # Used instead of the repo-root requirements.txt when deploying
 # chinese_streamlit_csv.py (Streamlit Cloud checks the app's folder first).
-streamlit==1.51.0
+streamlit==1.64.0
 pandas
 openai
 jieba>=0.42
