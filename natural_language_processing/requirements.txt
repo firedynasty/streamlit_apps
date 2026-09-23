@@ -1,0 +1,10 @@
+# Used instead of the repo-root requirements.txt when deploying
+# chinese_streamlit_csv.py (Streamlit Cloud checks the app's folder first).
+streamlit==1.51.0
+pandas
+openai
+jieba>=0.42
+pypinyin>=0.55
+pypinyin-dict>=0.9
+pycccedict>=1.2
+opencc-python-reimplemented>=0.1.7
