@@ -93,6 +93,14 @@ TITLE_MEANINGS = {
     "同学": "classmate",
 }
 
+# CC-CEDICT definitions that aren't meanings:
+# - cross-references: "old variant of 和[he2]", "see 什麼|什么[shen2 me5]"
+#   (和's first he2 entry is only that pointer, so it used to win the lookup)
+# - measure-word notes: "CL:個|个[ge4],位[wei4]" (一个爸爸 / 一位爸爸)
+CROSS_REF_RE = re.compile(r"^((old|archaic|ancient|erroneous|Japanese|Korean) )?variant of |^see (also )?\S+\[", re.IGNORECASE)
+CL_PREFIX = "CL:"
+INLINE_CL_RE = re.compile(r"\(CL:([^)]*)\)")  # sense-specific: "greens (CL:棵[ke1])"
+
 
 def load_cedict() -> dict:
     """Parses CC-CEDICT ourselves instead of using pycccedict.CcCedict directly --
@@ -136,6 +144,35 @@ def _cedict_pinyin_to_marked(py: str) -> str:
     once we've picked a CC-CEDICT entry, so the Pinyin and English meaning
     columns always describe the same reading rather than two different ones."""
     return " ".join(tone3_to_tone(syllable).lower() for syllable in py.split())
+
+
+def _real_definitions(entry: dict) -> list[str]:
+    """Definitions minus cross-references and CL: measure-word notes."""
+    return [d for d in entry["definitions"] if not CROSS_REF_RE.match(d) and not d.startswith(CL_PREFIX)]
+
+
+def _parse_cl(cl_list: str) -> list[str]:
+    """"個|个[ge4],位[wei4]" -> ["个", "位"] (simplified form, no pinyin)."""
+    words = []
+    for item in cl_list.split(","):
+        word = item.split("[")[0].split("|")[-1].strip()
+        if word and word not in words:
+            words.append(word)
+    return words
+
+
+def measure_words(entry: dict) -> list[str]:
+    """Whole-entry measure words from a standalone "CL:..." definition."""
+    words = []
+    for d in entry["definitions"]:
+        if d.startswith(CL_PREFIX):
+            words += [w for w in _parse_cl(d[len(CL_PREFIX):]) if w not in words]
+    return words
+
+
+def _format_inline_cl(definition: str) -> str:
+    """"greens (CL:棵[ke1])" -> "greens (measure word: 棵)"."""
+    return INLINE_CL_RE.sub(lambda m: f"(measure word: {', '.join(_parse_cl(m.group(1)))})", definition)
 
 
 def _is_verb_def(entry: dict) -> bool:
@@ -184,6 +221,8 @@ def cedict_lookup(word: str, pos_flag: str, cedict: dict) -> dict | None:
     entries = cedict.get(word)
     if not entries:
         return None
+    # drop pointer-only entries ("old variant of 和[he2]") when a real one exists
+    entries = [e for e in entries if _real_definitions(e)] or entries
     if len(entries) == 1:
         return entries[0]
 
@@ -219,7 +258,7 @@ def select_definitions(entry: dict, pos_flag: str, limit: int | None = 3) -> lis
     长 in a "长得很高" resultative-complement construction gets tagged as a
     plain adjective, not a verb, and there's no clean signal left to
     recognize the "to grow" sense wanted there.)"""
-    defs = entry["definitions"]
+    defs = [_format_inline_cl(d) for d in (_real_definitions(entry) or entry["definitions"])]
     if pos_flag.startswith("v"):
         verb_defs = [d for d in defs if d.strip().lower().startswith("to ")]
         if verb_defs:
@@ -231,10 +270,15 @@ def word_pinyin_and_meaning(
     word: str, pos_flag: str, prev_word: str | None, cedict: dict, max_meanings: int | None = 3
 ) -> tuple[str, list[str]]:
     """Returns the word's pinyin and its meanings -- one list item per
-    meaning, which chinese_text_to_rows puts on separate rows."""
+    meaning, which chinese_text_to_rows joins into one cell."""
     entry = cedict_lookup(word, pos_flag, cedict)
     if entry:
-        return _cedict_pinyin_to_marked(entry["pinyin"]), select_definitions(entry, pos_flag, max_meanings)
+        meanings = select_definitions(entry, pos_flag, max_meanings)
+        mws = measure_words(entry)
+        if mws and meanings:
+            # kept, but out of the meaning slots: "(coll.) father-dad (measure word: 个, 位)"
+            meanings[-1] += f" (measure word: {', '.join(mws)})"
+        return _cedict_pinyin_to_marked(entry["pinyin"]), meanings
 
     # not in the dictionary at all -- pypinyin's own guess is the best pinyin
     # we can offer; only the meaning needs a fallback below
@@ -262,7 +306,7 @@ def word_pinyin_and_meaning(
             # pypinyin's own contextual guess for that character.
             ch_entry = cedict_lookup(ch, "", cedict)
             if ch_entry:
-                parts.append(ch_entry["definitions"][0])
+                parts.append((_real_definitions(ch_entry) or ch_entry["definitions"])[0])
         if parts:
             return py, [" / ".join(parts)]
     return py, [""]
@@ -301,13 +345,16 @@ def split_sentences(text: str) -> list[str]:
     return sentences
 
 
+MEANING_SEPARATOR = "-"
+
+
 def chinese_text_to_rows(text: str, cedict: dict, max_meanings: int | None = 3) -> list[list[str]]:
     """Returns the table as plain row data (header row first) -- the CSV
     string (chinese_text_to_csv, below) and the Streamlit app's dataframe
     view (streamlit_app.py) both just format these same rows differently,
     so the row-building logic itself only lives here. A word with several
-    meanings gets one row per meaning (up to `max_meanings`, None = all),
-    with its Chinese and pinyin repeated on each row."""
+    meanings keeps them in one cell, joined with MEANING_SEPARATOR (up to
+    `max_meanings`, None = all), e.g. 我们 -> "we-us-ourselves"."""
     sentences = split_sentences(text)
     if not sentences:
         return []
@@ -333,8 +380,7 @@ def chinese_text_to_rows(text: str, cedict: dict, max_meanings: int | None = 3) 
             if not CJK_RE.search(word):
                 continue  # skip punctuation/whitespace tokens
             word_pinyin, meanings = word_pinyin_and_meaning(word, flag, prev_word, cedict, max_meanings)
-            for meaning in meanings:
-                rows.append([display_word, word_pinyin, meaning])
+            rows.append([display_word, word_pinyin, MEANING_SEPARATOR.join(meanings)])
             prev_word = word
     return rows
 

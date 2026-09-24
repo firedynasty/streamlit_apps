@@ -2,8 +2,8 @@
 """
 Streamlit UI for chinese_csv.py: paste Chinese text (or upload a .txt file)
 and get a Chinese/Pinyin/English meaning table -- one row per sentence plus
-a word-by-word breakdown, with each dictionary meaning on its own row (the
-word and pinyin repeated down). Choose how many meanings per word to keep.
+a word-by-word breakdown, one row per word with its dictionary meanings
+joined by "-" (we-us-ourselves). Choose how many meanings per word to keep.
 
 Two engines, same table layout:
   - Local dictionary (chinese_csv.py: jieba + pypinyin + CC-CEDICT) -- free,
@@ -59,7 +59,7 @@ def main() -> None:
     st.title("🀄 Chinese -> CSV")
     st.caption(
         "Paste Chinese text and get a Chinese, Pinyin, English meaning table -- "
-        "word-by-word, one row per meaning, ready to paste into Google Sheets. "
+        "word-by-word, meanings joined by \"-\", ready to paste into Google Sheets. "
         "Works on Simplified or Traditional text. Free local dictionary, or OpenAI "
         "when an API key is set."
     )
@@ -89,7 +89,7 @@ def main() -> None:
                 max_value=20,
                 value=3,
                 disabled=all_meanings,
-                help="Each meaning gets its own row, with the word and pinyin repeated.",
+                help="Meanings are joined in one cell, e.g. we-us-ourselves.",
             )
 
         st.divider()
